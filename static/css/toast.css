@@ -1,0 +1,113 @@
+/* Toast Notification Styles */
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: rgba(24, 24, 31, 1);
+    /* Fully opaque dark background */
+    border-left: 4px solid var(--primary);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 300px;
+    max-width: 500px;
+    animation: slideIn 0.3s ease-out;
+    position: relative;
+}
+
+.toast-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+    color: var(--text-main);
+    font-size: 0.95rem;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.toast-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+}
+
+/* Toast Types */
+.toast-success {
+    border-left-color: var(--success);
+}
+
+.toast-error {
+    border-left-color: var(--danger);
+}
+
+.toast-warning {
+    border-left-color: var(--warning);
+}
+
+.toast-info {
+    border-left-color: var(--primary);
+}
+
+.toast-loading {
+    border-left-color: var(--primary);
+}
+
+/* Breathing animation for loading state */
+.toast.breathing {
+    animation: slideIn 0.3s ease-out, breathe 2s ease-in-out infinite;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+@keyframes breathe {
+
+    0%,
+    100% {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        border-left-width: 4px;
+    }
+
+    50% {
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+        border-left-width: 6px;
+    }
+}

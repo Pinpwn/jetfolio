@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/toast.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <nav class="sidebar">
+            <div class="logo">
+                <h2>Stocl.</h2>
+            </div>
+            <ul class="nav-links">
+                <li id="nav-dashboard" class="active"><a href="#" onclick="switchTab('dashboard')">Dashboard</a></li>
+                <li id="nav-portfolio"><a href="#" onclick="switchTab('portfolio')">Portfolio</a></li>
+                <li id="nav-analytics"><a href="#" onclick="switchTab('analytics')">Analytics</a></li>
+                <li id="nav-news"><a href="#" onclick="switchTab('news')">News</a></li>
+                <li id="nav-settings"><a href="#" onclick="switchTab('settings')">Settings</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header>
+                <h1>Welcome back, User</h1>
+                <div class="actions">
+                    <button id="refresh-btn" class="btn-primary" style="margin-right: 10px;">Refresh Insights</button>
+                    <button id="sync-btn" class="btn-primary">Sync Portfolio</button>
+                </div>
+            </header>
+
+            <!-- Dashboard View -->
+            <div id="dashboard-view">
+                <section class="metrics-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="card metric-card">
+                        <h3>Invested Value</h3>
+                        <p class="value" id="invested-value">₹0.00</p>
+                    </div>
+                    <div class="card metric-card">
+                        <h3>Current Value</h3>
+                        <div style="display:flex; align-items:baseline; gap:10px">
+                            <p class="value" id="total-value">₹0.00</p>
+                            <span class="trend" id="overall-growth">0%</span>
+                        </div>
+                        <small style="color:var(--text-muted)" id="growth-value">₹0.00</small>
+                    </div>
+                    <div class="card metric-card">
+                        <h3>Day Change</h3>
+                        <div style="display:flex; align-items:baseline; gap:10px">
+                            <p class="value" id="day-change">₹0.00</p>
+                            <span class="trend" id="day-change-pct">0%</span>
+                        </div>
+                        <!-- <small style="color:var(--text-muted)">of total portfolio</small> -->
+                    </div>
+                </section>
+
+                <div class="dashboard-grid">
+                    <section class="card chart-section">
+                        <h3>Asset Allocation</h3>
+                        <div class="chart-container">
+                            <canvas id="allocationChart"></canvas>
+                        </div>
+                    </section>
+
+                    <section class="card news-section">
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
+                            <h3 style="margin:0">Portfolio Summary (AI)</h3>
+                            <button class="refresh-icon-btn" onclick="fetchPortfolioSummary(true)"
+                                title="Refresh AI Summary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M23 4v6h-6"></path>
+                                    <path d="M1 20v-6h6"></path>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                                    </path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="dashboard-portfolio-summary">
+                            <p style="color:var(--text-muted)">Click refresh to generate AI summary</p>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- V7: Theme Insights Widgets -->
+                <section style="margin-top:2rem">
+                    <h3 style="margin-bottom:1rem">Theme Insights (AI)</h3>
+                    <div id="theme-insights-grid" class="themes-grid">
+                        <!-- JS will populate LLM summaries -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- Portfolio View -->
+            <div id="portfolio-view" class="hidden">
+                <!-- Themes Section -->
+                <section class="themes-section" style="margin-bottom: 2rem;">
+                    <div class="header-row"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3>Your Themes</h3>
+                        <button id="create-theme-btn" class="btn-primary">+ New Theme</button>
+                    </div>
+                    <div class="themes-grid" id="themes-grid">
+                        <!-- JS will populate -->
+                    </div>
+                </section>
+
+                <div class="insights-grid">
+                    <section class="card">
+                        <h3>Timeline (Significant Events)</h3>
+                        <div class="timeline" id="timeline-list">
+                            <!-- JS Populate -->
+                        </div>
+                    </section>
+                    <section class="card">
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
+                            <h3 style="margin:0">Weekly Insights</h3>
+                            <button class="refresh-icon-btn" onclick="fetchInsights(true)"
+                                title="Refresh Weekly Insights">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M23 4v6h-6"></path>
+                                    <path d="M1 20v-6h6"></path>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                                    </path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="list-group" id="portfolio-insights-list">
+                            <!-- JS Populate All -->
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Holdings moved to Analytics View -->
+            </div>
+
+            <!-- Analytics View -->
+            <div id="analytics-view" class="hidden">
+                <h2 style="margin-bottom: 2rem;">Portfolio Analytics</h2>
+
+                <div class="analytics-grid">
+                    <section class="card">
+                        <h3>Theme Allocation</h3>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+                            Distribution of your portfolio value across investment themes. Click a slice to filter
+                            holdings.
+                        </p>
+                        <div class="chart-container" style="max-width: 500px; margin: 0 auto;">
+                            <canvas id="themeAllocationChart"></canvas>
+                        </div>
+                    </section>
+                </div>
+
+                <section class="card holdings-section" style="margin-top: 2rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
+                        <div style="display:flex; align-items:center; gap:1rem">
+                            <h3 style="margin:0">Your Holdings</h3>
+                            <div class="filter-controls" style="display:flex; gap:0.5rem; align-items:center">
+                                <select id="theme-filter-select" onchange="window.filterAnalytics(this.value)"
+                                    style="padding:5px; border-radius:6px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border)">
+                                    <option value="">All Themes</option>
+                                    <!-- JS Populates -->
+                                </select>
+                            </div>
+                        </div>
+                        <button onclick="openAddStock()" class="btn-primary btn-small">+ Add Holding</button>
+                    </div>
+                    <table class="holdings-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Name</th>
+                                <th>Platform</th>
+                                <th>Baskets</th>
+                                <th>Value</th>
+                                <th style="width: 140px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdings-table-body">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+
+            <!-- News View -->
+            <div id="news-view" class="hidden">
+                <h2 style="margin-bottom: 2rem;">Latest News</h2>
+                <div id="news-list" class="list-group">
+                    <!-- JS will populate news articles -->
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="settings-view" class="hidden">
+                <h2 style="margin-bottom: 2rem;">Settings</h2>
+
+                <section class="card" style="margin-bottom: 2rem;">
+                    <h3>Zerodha API Configuration</h3>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="text" id="zerodha-api-key-input" placeholder="Enter your Zerodha API key">
+                    </div>
+                    <div class="form-group">
+                        <label>API Secret</label>
+                        <input type="password" id="zerodha-api-secret-input" placeholder="Enter your API secret">
+                    </div>
+                    <button class="btn-primary" onclick="saveZerodhaCredentials()" style="margin-right: 1rem;">Save
+                        Credentials</button>
+                    <button class="btn-secondary" onclick="connectZerodha()">Connect Zerodha</button>
+                    <div id="zerodha-status" style="margin-top: 1rem; color: var(--text-muted);">Loading status...</div>
+                </section>
+
+                <section class="card" style="margin-bottom: 2rem;">
+                    <h3>API Configuration</h3>
+                    <div class="form-group">
+                        <label>Perplexity API Key</label>
+                        <input type="password" id="perplexity-api-key-input" placeholder="Enter your API key">
+                    </div>
+                    <button class="btn-primary" onclick="saveApiKey()">Save API Key</button>
+                </section>
+
+                <section class="card">
+                    <h3>Application Logs</h3>
+                    <button class="btn-secondary" onclick="refreshLogs()" style="margin-bottom: 1rem;">Refresh
+                        Logs</button>
+                    <textarea id="logs-viewer" readonly
+                        style="width:100%; height:400px; font-family:monospace; font-size:0.85rem; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); padding:1rem; border-radius:8px;"></textarea>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Theme Modal -->
+    <div id="theme-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="theme-modal-title">Create New Theme</h3>
+            <div class="form-group">
+                <label>Theme Name</label>
+                <input type="text" id="theme-name-input" placeholder="e.g. EV Revolution">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" id="theme-desc-input" placeholder="Optional description">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('theme-modal')">Cancel</button>
+                <button id="theme-submit-btn" class="btn-primary" onclick="submitTheme()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Stocks Modal (Checkbox style for Theme) -->
+    <div id="manage-stocks-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="manage-stocks-title">Manage Stocks</h3>
+            <div class="form-group">
+                <input type="text" id="stock-search-input" placeholder="Search stocks..." onkeyup="filterStocks()">
+            </div>
+            <div id="stock-checklist"
+                style="max-height: 250px; overflow-y: auto; margin-bottom: 1rem; border:1px solid var(--border); padding:0.5rem; border-radius:6px;">
+                <!-- JS Populated -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('manage-stocks-modal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Basket Modal -->
+    <div id="edit-basket-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="edit-basket-title">Edit Stock Basket</h3>
+            <p style="margin-bottom:1rem; color:var(--text-muted)">Assign baskets for this stock.</p>
+            <div id="basket-checkboxes" style="margin-bottom: 1.5rem; max-height: 200px; overflow-y: auto;">
+                <!-- JS Populated -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('edit-basket-modal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Manual Stock Modal -->
+    <div id="add-stock-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Add Manual Holding</h3>
+            <div class="form-group">
+                <label>Asset Type</label>
+                <select id="add-stock-type"
+                    style="width:100%; padding:0.8rem; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:6px;">
+                    <option value="EQUITY">Stock (Equity)</option>
+                    <option value="CRYPTO">Cryptocurrency</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Symbol</label>
+                <input type="text" id="add-stock-symbol" placeholder="e.g. RELIANCE or BTC">
+            </div>
+            <div class="form-group">
+                <label>Quantity</label>
+                <input type="number" id="add-stock-qty" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label>Average Price</label>
+                <input type="number" id="add-stock-price" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label>Currency</label>
+                <select id="add-stock-currency"
+                    style="width:100%; padding:0.8rem; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:6px;">
+                    <option value="INR">INR (₹)</option>
+                    <option value="USD">USD ($)</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal('add-stock-modal')">Cancel</button>
+                <button class="btn-primary" onclick="submitNewStock()">Add Stock</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Stock Modal -->
+    <div id="manage-stock-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="manage-stock-title">Manage Stock</h3>
+            <div
+                style="margin-bottom:1.5rem; display:flex; gap:1rem; border-bottom:1px solid var(--border); padding-bottom:1rem">
+                <button class="btn-small" onclick="setManageAction('buy')" id="manage-btn-buy">Buy More</button>
+                <button class="btn-small btn-secondary" onclick="setManageAction('sell')"
+                    id="manage-btn-sell">Trim/Sell</button>
+                <button class="btn-small btn-secondary" onclick="setManageAction('edit')"
+                    id="manage-btn-edit">Edit</button>
+            </div>
+
+            <div class="form-group">
+                <label id="manage-qty-label">Quantity to Add</label>
+                <input type="number" id="manage-stock-qty" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label id="manage-price-label">Buy Price</label>
+                <input type="number" id="manage-stock-price" placeholder="0.00">
+            </div>
+
+            <div class="modal-actions" style="justify-content:space-between">
+                <button class="btn-secondary" style="background:var(--danger); color:white"
+                    onclick="deleteStock()">Delete Stock</button>
+                <div style="display:flex; gap:1rem">
+                    <button class="btn-secondary" onclick="closeModal('manage-stock-modal')">Cancel</button>
+                    <button class="btn-primary" onclick="submitManageStock()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Slide-over -->
+    <div id="analysis-modal" class="modal-overlay hidden" onclick="closeModal('analysis-modal')">
+        <!-- Stop propagation so clicking inside doesn't close -->
+        <div class="slide-over-content" onclick="event.stopPropagation()">
+            <div class="slide-over-header">
+                <h3 id="analysis-title">Analysis</h3>
+                <button class="close-btn" onclick="closeModal('analysis-modal')">&times;</button>
+            </div>
+            <div id="analysis-content" class="slide-over-body">
+                <!-- Content -->
+            </div>
+        </div>
+    </div>
+    <!-- Security utilities - load first to prevent XSS -->
+    <script src="/static/js/security.js"></script>
+    <script src="/static/js/toast.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>
