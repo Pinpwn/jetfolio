@@ -172,7 +172,7 @@ Be specific and actionable."""
             "references": references
         }
 
-    def analyze_stock_movement(self, symbol: str, change_pct: float, deep_context: Optional[str] = None) -> Dict[str, Any]:
+    async def analyze_stock_movement(self, symbol: str, change_pct: float, deep_context: Optional[str] = None) -> Dict[str, Any]:
         """
         Analyze why a stock moved significantly.
         Uses Perplexity to find real-time reasons for the price change.
@@ -190,7 +190,8 @@ Be specific and actionable."""
         Do NOT restate the percentage change.
         Keep it under 30 words."""
         
-        result = self._make_request(prompt)
+        import asyncio
+        result = await asyncio.to_thread(self._make_request, prompt)
         if not result:
             return {
                 "reason": f"{symbol} {direction} significantly. (Analysis unavailable)",

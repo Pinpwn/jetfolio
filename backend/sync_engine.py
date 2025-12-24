@@ -15,6 +15,13 @@ class SyncEngine:
         ]
 
     async def run_sync(self):
+        """
+        Executes the sync process in a separate thread to avoid blocking the event loop.
+        """
+        import asyncio
+        return await asyncio.to_thread(self._execute_sync)
+
+    def _execute_sync(self):
         all_stocks: List[Stock] = []
         
         # 1. Fetch from all adapters

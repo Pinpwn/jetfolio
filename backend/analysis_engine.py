@@ -165,7 +165,7 @@ class AnalysisEngine:
                     print(f"Deep Intel Error for {item['symbol']}: {e}")
                     deep_context = None
 
-                res = llm.analyze_stock_movement(item["symbol"], item["pct_change"], deep_context=deep_context)
+                res = await llm.analyze_stock_movement(item["symbol"], item["pct_change"], deep_context=deep_context)
                 item["reason"] = res["reason"]
                 item["citations"] = res["citations"]
             else:
@@ -255,7 +255,7 @@ class AnalysisEngine:
                             [MACRO] {deep_data.get('macro', 'N/A')}
                             """
                             
-                            res = llm.analyze_stock_movement(stock.symbol, pct_change, news=news, deep_context=deep_context)
+                            res = await llm.analyze_stock_movement(stock.symbol, pct_change, deep_context=deep_context)
                             description = res["reason"]
                             import json
                             if res["citations"]:
