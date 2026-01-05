@@ -29,11 +29,17 @@
         <main class="main-content">
             <header>
                 <h1>Welcome back, User</h1>
+                <div class="header-status">
+                     <div id="sync-status-pill" class="status-pill hidden">
+                        <span class="status-dot breathing-animation"></span>
+                        <span id="sync-status-text">Syncing...</span>
+                     </div>
+                </div>
                 <div class="actions">
                     <button id="refresh-btn" class="btn-primary" style="margin-right: 10px;">Refresh Insights</button>
                     <button id="sync-btn" class="btn-primary">Sync Portfolio</button>
                 </div>
-            </header>
+            </header
 
             <!-- Dashboard View -->
             <div id="dashboard-view">
