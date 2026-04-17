@@ -689,3 +689,64 @@ td {
 .refresh-icon-btn svg {
     pointer-events: none;
 }
+
+/* News Badges */
+.news-badge {
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    letter-spacing: 0.3px;
+}
+
+.news-badge.score {
+    color: #000;
+}
+
+.news-badge.warning {
+    background: var(--warning);
+    color: #000;
+}
+
+.news-badge.success {
+    background: var(--success);
+}
+
+.news-badge.danger {
+    background: var(--danger);
+}
+
+.news-badge.neutral {
+    background: #374151;
+    color: #e5e7eb;
+}
+
+.news-badge.analyzing {
+    background: var(--warning);
+    color: #000;
+    animation: pulseBadge 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseBadge {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}

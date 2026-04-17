@@ -12,11 +12,35 @@ pip install -r requirements.txt
 pip install fastapi uvicorn sqlmodel pydantic requests beautifulsoup4 kiteconnect cryptography python-jose
 ```
 
-### 2. Security Setup (IMPORTANT for Production)
+```
 
-#### Set Encryption Key
+### 2. Local AI Setup (Optional)
 
-**Required for API key encryption:**
+To use local LLMs (Ollama) for privacy-focused, offline analysis:
+
+**Requirements:**
+- Ollama installed (or Docker & Docker Compose)
+- **RAM:** Minimum 8GB (Recommended 16GB)
+
+**Setup:**
+The easiest way is to run Ollama locally or via Docker:
+
+```bash
+# Using Docker Compose
+docker-compose up -d
+```
+
+Once running, go to **Settings > AI Provider Configuration** in the dashboard to switch to "Local LLM" and provide your Ollama API URL (default: `http://localhost:8888/api/generate`).
+
+This will allow the dashboard to generate AI insights and perform sentiment analysis using your local model.
+
+### 3. Security Setup (IMPORTANT for Production)
+
+#### Encryption at Rest (Enforced)
+
+**Required for API key and token security:**
+
+The application now automatically encrypts sensitive keys (api_key, api_secret, token) at rest using AES-256-GCM. 
 
 ```bash
 # Generate and set encryption key
@@ -27,9 +51,15 @@ echo "ENCRYPTION_KEY=$(python -c 'from cryptography.fernet import Fernet; print(
 ```
 
 **⚠️ WARNING:** 
-- Store this key securely - losing it means losing access to encrypted API keys
-- Never commit the key to version control
-- Use different keys for dev/staging/production
+- Store this key securely - losing it means losing access to encrypted API keys.
+- If not set, the app will generate a temporary session-based key for development, which means keys won't persist across restarts.
+- Never commit the key to version control.
+
+#### Data Sanitization
+
+- All user-generated content is sanitized for XSS.
+- API endpoints mask sensitive values in responses.
+- API key format validation is enforced.
 
 #### For Production Deployment
 
@@ -128,12 +158,12 @@ Before deploying to production:
 
 ## Environment Variables
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `ENCRYPTION_KEY` | Yes (Prod) | Fernet encryption key for API keys | `7x9K...base64...` |
-| `JWT_SECRET_KEY` | Future | JWT token signing key | `hex-string...` |
-| `USE_HTTPS` | Prod | Enable HTTPS enforcement | `true` |
-| `ALLOWED_ORIGINS` | Optional | CORS allowed origins | `https://example.com` |
+| Variable          | Required   | Description                        | Example               |
+| ----------------- | ---------- | ---------------------------------- | --------------------- |
+| `ENCRYPTION_KEY`  | Yes (Prod) | Fernet encryption key for API keys | `7x9K...base64...`    |
+| `JWT_SECRET_KEY`  | Future     | JWT token signing key              | `hex-string...`       |
+| `USE_HTTPS`       | Prod       | Enable HTTPS enforcement           | `true`                |
+| `ALLOWED_ORIGINS` | Optional   | CORS allowed origins               | `https://example.com` |
 
 ---
 

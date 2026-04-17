@@ -5,6 +5,7 @@ from backend.database import engine
 from backend.adapters.zerodha import ZerodhaAdapter
 from backend.adapters.vested import VestedAdapter
 from datetime import datetime, timedelta
+from backend.logger import logger
 
 class SyncEngine:
     def __init__(self):
@@ -77,14 +78,23 @@ class SyncEngine:
                 if key in existing_map:
                     # Update existing stock
                     db_stock = existing_map[key]
+                    
+                    # Change Detection for AI analysis
+                    # If price change > 1%, mark for re-analysis by clearing last_analyzed
+                    if db_stock.current_price > 0:
+                        price_diff = abs(stock_data.current_price - db_stock.current_price) / db_stock.current_price
+                        if price_diff > 0.01: # 1% threshold
+                             db_stock.last_analyzed = None 
+                             logger.info(f"Flagging {db_stock.symbol} for re-analysis (Price change: {price_diff*100:.1f}%)")
+
                     db_stock.quantity = stock_data.quantity
                     db_stock.current_price = stock_data.current_price
                     db_stock.previous_close = stock_data.previous_close
                     db_stock.average_price = stock_data.average_price
-                    db_stock.name = stock_data.name # Update name in case it changed
+                    db_stock.name = stock_data.name 
                     db_stock.last_synced = stock_data.last_synced
                     db_stock.weekly_change_percentage = stock_data.weekly_change_percentage
-                    db_stock.asset_class = stock_data.asset_class # Correctly sync asset class changes (e.g. CNC -> EQUITY mapping fix)
+                    db_stock.asset_class = stock_data.asset_class 
                     session.add(db_stock)
                 else:
                     # Insert new stock

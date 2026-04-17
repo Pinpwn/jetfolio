@@ -89,3 +89,8 @@ tmp/
 
 # Antigravity brain directory (artifacts)
 .gemini/
+
+# Local LLM Data
+backend/ollama_data/
+*.gguf
+portfolio.db

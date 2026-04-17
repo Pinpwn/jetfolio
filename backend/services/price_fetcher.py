@@ -5,13 +5,38 @@ from backend.logger import logger
 import time
 
 class PriceFetcher:
-    def __init__(self):
-        # Yfinance handles headers internally
+    """
+    A service class to fetch and update stock prices using the yfinance library.
+
+    This class provides methods to update current prices, previous close prices,
+    and weekly price changes for a list of Stock objects.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initializes the PriceFetcher service.
+        
+        Note:
+            yfinance handles headers and session management internally.
+        """
         pass
         
     def update_prices(self, stocks: List[Stock]) -> None:
         """
         Updates the current_price and previous_close of stocks in-place using yfinance.
+
+        This method iterates through the provided list of stocks, fetches their 
+        latest market data from Yahoo Finance, and updates the stock objects 
+        directly. It also calculates the weekly price change percentage.
+
+        Args:
+            stocks (List[Stock]): A list of Stock model instances to be updated.
+
+        Returns:
+            None: Updates the Stock objects in-place.
+
+        Raises:
+            Exception: Logs errors encountered during the fetching process for individual stocks.
         """
         if not stocks:
             return
@@ -31,7 +56,7 @@ class PriceFetcher:
                 try:
                     price = ticker.fast_info.last_price
                     prev_close = ticker.fast_info.previous_close
-                except:
+                except Exception:
                     # Fallback to history if fast_info fails (sometimes happens on weak conn)
                     hist = ticker.history(period="2d")
                     if not hist.empty:
@@ -62,8 +87,28 @@ class PriceFetcher:
             except Exception as e:
                 logger.error(f"Error fetching data for {stock.symbol}: {e}")
 
+    def get_ticker_data(self, symbol: str) -> yf.Ticker:
+        """
+        Consolidated helper to get a yfinance Ticker object with proper symbol mapping.
+        """
+        # Create a dummy stock object for symbol mapping logic
+        from backend.models import Stock
+        dummy_stock = Stock(symbol=symbol, currency="INR", platform="zerodha", quantity=0, average_price=0)
+        yahoo_symbol = self._get_yahoo_symbol(dummy_stock)
+        return yf.Ticker(yahoo_symbol)
+
     def _get_yahoo_symbol(self, stock: Stock) -> str:
-        """Helper to format symbol for Yahoo Finance"""
+        """
+        Formats a stock's symbol to be compatible with Yahoo Finance.
+
+        Handles specific logic for cryptocurrencies and Indian stock market symbols.
+
+        Args:
+            stock (Stock): The stock object whose symbol needs formatting.
+
+        Returns:
+            str: The formatted Yahoo Finance ticker symbol.
+        """
         symbol = stock.symbol.upper()
         
         # Crypto Logic
@@ -84,7 +129,20 @@ class PriceFetcher:
         return symbol
 
     def _fetch_weekly_change_yf(self, stock: Stock, ticker: yf.Ticker) -> Optional[float]:
-        """Fetch 5-day percentage change using existing ticker obj"""
+        """
+        Fetches the 5-day percentage change for a stock using an existing yfinance Ticker object.
+
+        Calculates the percentage difference between the closing price 5 days ago 
+        and the latest closing price.
+
+        Args:
+            stock (Stock): The stock object for which to fetch the weekly change.
+            ticker (yf.Ticker): An initialized yfinance Ticker object.
+
+        Returns:
+            Optional[float]: The percentage change over the last 5 trading days, 
+                             or None if data is unavailable or an error occurs.
+        """
         try:
             hist = ticker.history(period="5d")
             

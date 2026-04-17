@@ -60,6 +60,14 @@
                     </div>
                 </section>
 
+                <!-- New: Top Movers Widget -->
+                <section class="card" style="margin-bottom: 2rem;">
+                    <h3>Top Movers (24h)</h3>
+                    <div id="dashboard-insights-list" class="list-group">
+                        <p style="color:var(--text-muted)">Loading movers...</p>
+                    </div>
+                </section>
+
                 <div class="dashboard-grid">
                     <section class="card chart-section">
                         <h3>Asset Allocation</h3>
@@ -218,6 +226,81 @@
                         Credentials</button>
                     <button class="btn-secondary" onclick="connectZerodha()">Connect Zerodha</button>
                     <div id="zerodha-status" style="margin-top: 1rem; color: var(--text-muted);">Loading status...</div>
+                </section>
+
+                <section class="card" style="margin-bottom: 2rem;">
+                    <h3>AI Provider Configuration</h3>
+                    <div class="form-group">
+                        <label>LLM Provider</label>
+                        <select id="llm-provider-select" onchange="toggleProviderSettings()"
+                            style="width:100%; padding:0.8rem; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:6px;">
+                            <option value="perplexity">Perplexity AI (Cloud)</option>
+                            <option value="groq">Groq (Ultra-Fast Cloud)</option>
+                            <option value="local">Local LLM (Ollama)</option>
+                        </select>
+                        <small style="color:var(--text-muted); display:block; margin-top:0.5rem">
+                            Select your preferred AI inference engine.
+                        </small>
+                    </div>
+
+                    <!-- Perplexity Specific Settings -->
+                    <div id="perplexity-settings" class="hidden"
+                        style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                        <h4 style="margin-bottom: 1rem; color: var(--primary);">Perplexity Configuration</h4>
+                        <div class="form-group">
+                            <label>Perplexity API Key</label>
+                            <div style="display:flex; gap:0.5rem">
+                                <input type="password" id="perplexity-api-key-input"
+                                    placeholder="Enter Perplexity API Key (pplx-...)" style="flex:1">
+                                <button class="btn-secondary btn-small" onclick="saveApiKey()">Save Key</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Groq Specific Settings -->
+                    <div id="groq-settings" class="hidden"
+                        style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                        <h4 style="margin-bottom: 1rem; color: var(--primary);">Groq Configuration</h4>
+                        <div class="form-group">
+                            <label>Groq API Key</label>
+                            <div style="display:flex; gap:0.5rem">
+                                <input type="password" id="groq-api-key-input"
+                                    placeholder="Enter Groq API Key (gsk_...)" style="flex:1">
+                                <button class="btn-secondary btn-small" onclick="saveGroqKey()">Save Key</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Groq Model</label>
+                            <div style="display:flex; gap:0.5rem">
+                                <select id="groq-model-select"
+                                    style="flex:1; padding:0.8rem; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border); border-radius:6px;">
+                                    <option value="" disabled selected>Select a model...</option>
+                                </select>
+                                <button class="btn-secondary btn-small" onclick="fetchGroqModels()"
+                                    title="Refresh Models">↻</button>
+                            </div>
+                            <small style="color:var(--text-muted); display:block; margin-top:0.5rem">
+                                Click refresh after saving key to load available models.
+                            </small>
+                        </div>
+                        <button class="btn-primary" onclick="saveGroqModel()">Save Model Config</button>
+                    </div>
+
+                    <!-- Local LLM Specific Settings -->
+                    <div id="local-settings" class="hidden"
+                        style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                        <h4 style="margin-bottom: 1rem; color: var(--primary);">Local LLM Configuration</h4>
+                        <div class="form-group">
+                            <label>Ollama API URL</label>
+                            <input type="text" id="ollama-url-input" placeholder="http://localhost:8888/api/generate">
+                            <small style="color:var(--text-muted)">Full URL for Ollama generation endpoint.</small>
+                        </div>
+                        <button class="btn-primary" onclick="saveLocalLLMConfig()">Save Local Config</button>
+                    </div>
+
+                    <div style="margin-top: 1.5rem;">
+                        <button class="btn-primary" onclick="saveLLMProvider()">Save Provider Selection</button>
+                    </div>
                 </section>
 
                 <section class="card" style="margin-bottom: 2rem;">

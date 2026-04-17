@@ -18,6 +18,12 @@ This document summarizes the critical security fixes applied to the Stock Dashbo
 - **XSS Prevention**: HTML sanitization for user inputs
 - **Security Headers**: Automatic HTTP security headers on all responses
 
+**Data Encryption at Rest (Implemented):**
+- **Encrypted Config Model**: The `Config` model in `backend/models.py` now includes an `is_encrypted` flag.
+- **Sensitive Key Protection**: Sensitive keys (API keys, secrets, tokens) are automatically encrypted using AES-256-GCM before storage.
+- **Dynamic Migration**: A startup check in `backend/main.py` automatically adds the `is_encrypted` column to existing databases.
+- **Masked Responses**: API responses now mask encrypted values to prevent credential leakage.
+
 **Security Headers Active:**
 ```python
 X-Frame-Options: DENY              # Prevents clickjacking

@@ -78,7 +78,7 @@ class TimelineEvent(SQLModel, table=True):
         related_stock_symbol: Optional stock symbol if event is stock-specific
     """
     id: Optional[int] = Field(default=None, primary_key=True)
-    date: datetime = Field(default_factory=datetime.utcnow)
+    date: datetime = Field(default_factory=datetime.utcnow, index=True)
     title: str
     description: str
     impact_percent: float  # Significant if > 5.0 or < -5.0
@@ -117,6 +117,7 @@ class Stock(SQLModel, table=True):
     platform: str  # "zerodha" or "vested"
     asset_class: str = Field(default="EQUITY")
     last_synced: datetime = Field(default_factory=datetime.utcnow)
+    last_analyzed: Optional[datetime] = Field(default=None)
     
     # Bidirectional relationship with themes
     themes: List[Theme] = Relationship(back_populates="stocks", link_model=StockTheme)
@@ -173,6 +174,7 @@ class NewsArticle(SQLModel, table=True):
     scraped_at: datetime = Field(default_factory=datetime.utcnow)
     sentiment: Optional[str] = None  # "positive", "negative", "neutral"
     credibility_score: int = Field(default=5)  # 1-10 score based on source
+    processing_status: str = Field(default="pending", index=True)  # pending, processing, completed, failed
 
 
 class Config(SQLModel, table=True):
@@ -180,27 +182,26 @@ class Config(SQLModel, table=True):
     Application configuration and API key storage.
     
     Key-value store for application settings, API credentials, and cached data.
-    Uses secure storage for sensitive values like API keys.
+    Sensitive values (API keys) are stored encrypted.
     
     Common keys:
-        - perplexity_api_key: Perplexity AI API key
-        - zerodha_api_key: Zerodha Kite Connect API key
-        - zerodha_api_secret: Zerodha API secret
-        - zerodha_access_token: Zerodha OAuth access token
+        - perplexity_api_key: Perplexity AI API key (Encrypted)
+        - groq_api_key: Groq API key (Encrypted)
+        - zerodha_api_key: Zerodha Kite Connect API key (Encrypted)
+        - zerodha_api_secret: Zerodha API secret (Encrypted)
+        - zerodha_access_token: Zerodha OAuth access token (Encrypted)
         - theme_summary_{id}: Cached LLM theme summary
         - portfolio_summary: Cached LLM portfolio summary
     
     Attributes:
         key: Configuration key (primary key, unique)
         value: Configuration value (stored as string, JSON for complex data)
+        is_encrypted: Flag indicating if the value is encrypted
         updated_at: Last update timestamp (defaults to current UTC time)
-    
-    Security Note:
-        Sensitive keys (API tokens) are stored in plaintext in SQLite.
-        For production, encrypt sensitive values or use environment variables.
     """
     key: str = Field(primary_key=True)
     value: str
+    is_encrypted: bool = Field(default=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

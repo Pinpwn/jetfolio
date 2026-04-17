@@ -30,7 +30,13 @@ connect_args = {"check_same_thread": False}
 
 # Create database engine
 # The engine manages the connection pool and dialect-specific behavior
-engine = create_engine(sqlite_url, connect_args=connect_args)
+# Increased pool size to handle background analysis threads
+engine = create_engine(
+    sqlite_url, 
+    connect_args=connect_args,
+    pool_size=20,
+    max_overflow=20
+)
 
 
 def create_db_and_tables():

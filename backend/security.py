@@ -16,8 +16,11 @@ PRODUCTION SETUP REQUIRED:
 
 from cryptography.fernet import Fernet
 import os
-from typing import Optional
 import html
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.models import Config
 
 
 class SecureConfigManager:
@@ -50,9 +53,17 @@ class SecureConfigManager:
             key = Fernet.generate_key().decode()
             os.environ['ENCRYPTION_KEY'] = key
         
-        self.cipher = Fernet(key.encode())
+        try:
+            self.cipher = Fernet(key.encode())
+        except Exception as e:
+            # Handle invalid key
+            import warnings
+            warnings.warn(f"Invalid ENCRYPTION_KEY: {e}. Generating a new one for this session.")
+            new_key = Fernet.generate_key().decode()
+            os.environ['ENCRYPTION_KEY'] = new_key
+            self.cipher = Fernet(new_key.encode())
     
-    def encrypt(self, value: str) -> bytes:
+    def encrypt(self, value: str) -> str:
         """
         Encrypt a string value.
         
@@ -60,16 +71,18 @@ class SecureConfigManager:
             value: Plaintext string to encrypt
             
         Returns:
-            Encrypted bytes
+            Encrypted value as a base64-encoded string
         """
-        return self.cipher.encrypt(value.encode())
+        if not value:
+            return ""
+        return self.cipher.encrypt(value.encode()).decode()
     
-    def decrypt(self, encrypted: bytes) -> str:
+    def decrypt(self, encrypted_value: str) -> str:
         """
-        Decrypt encrypted bytes to string.
+        Decrypt encrypted string to plaintext.
         
         Args:
-            encrypted: Encrypted bytes
+            encrypted_value: Base64-encoded encrypted string
             
         Returns:
             Decrypted plaintext string
@@ -77,7 +90,32 @@ class SecureConfigManager:
         Raises:
             cryptography.fernet.InvalidToken: If decryption fails
         """
-        return self.cipher.decrypt(encrypted).decode()
+        if not encrypted_value:
+            return ""
+        return self.cipher.decrypt(encrypted_value.encode()).decode()
+
+    def get_value(self, config_item: "Config") -> str:
+        """
+        Safely retrieve the value from a Config object, decrypting if necessary.
+        
+        Args:
+            config_item: Config database model object
+            
+        Returns:
+            Decrypted (if needed) plaintext value
+        """
+        if not config_item:
+            return ""
+            
+        if config_item.is_encrypted:
+            try:
+                return self.decrypt(config_item.value)
+            except Exception as e:
+                import logging
+                logging.error(f"Failed to decrypt config key {config_item.key}: {e}")
+                return config_item.value  # Fallback to raw if decryption fails (might be unencrypted)
+        
+        return config_item.value
 
 
 def sanitize_html(text: str) -> str:
