@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 
 class SyncEngine:
     def __init__(self):
-        # In a real app, keys would come from env vars or DB
+        # Adapters handle their own credential loading from Env or DB
         self.adapters = [
-            ZerodhaAdapter(api_key="mock_zerodha_key"),
-            VestedAdapter(api_key="mock_vested_key")
+            ZerodhaAdapter(),
+            VestedAdapter()
         ]
 
     async def run_sync(self):

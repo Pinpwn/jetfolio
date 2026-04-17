@@ -498,9 +498,9 @@ def get_logs(lines: int = 100):
 @app.get("/api/llm/theme-summaries")
 def get_theme_summaries(session: Session = Depends(get_session)):
     """Generate LLM summaries for all themes with caching"""
-    # Get API key from config
-    config = session.get(Config, "perplexity_api_key")
-    api_key = config.value if config else None
+    # Get API key from config (checks Env then DB)
+    from backend.security import get_api_key
+    api_key = get_api_key(session, "perplexity_api_key")
     
     llm = LLMService(api_key=api_key)
     themes = session.exec(select(Theme)).all()
@@ -555,9 +555,9 @@ def get_theme_summaries(session: Session = Depends(get_session)):
 @app.get("/api/llm/portfolio-summary")
 def get_ai_portfolio_summary(refresh: bool = False, session: Session = Depends(get_session)):
     """Generate LLM summary for entire portfolio with caching"""
-    # Get API key from config
-    config = session.get(Config, "perplexity_api_key")
-    api_key = config.value if config else None
+    # Get API key from config (checks Env then DB)
+    from backend.security import get_api_key
+    api_key = get_api_key(session, "perplexity_api_key")
     
     llm = LLMService(api_key=api_key)
     

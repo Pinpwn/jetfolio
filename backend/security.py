@@ -133,6 +133,31 @@ def validate_api_key_format(key: str, key_type: str) -> bool:
     return True
 
 
+def get_api_key(session, key_name: str) -> Optional[str]:
+    """
+    Retrieve an API key from Environment Variables or the Config table.
+    
+    Args:
+        session: Database session
+        key_name: Name of the key (e.g. 'perplexity_api_key')
+        
+    Returns:
+        The API key string or None if not found
+    """
+    import os
+    
+    # 1. Check environment variable (convert to uppercase, e.g. PERPLEXITY_API_KEY)
+    env_name = key_name.upper()
+    env_val = os.getenv(env_name)
+    if env_val:
+        return env_val
+        
+    # 2. Fallback to Database Config
+    from backend.models import Config
+    config = session.get(Config, key_name)
+    return config.value if config else None
+
+
 # Global instance for use across application
 _secure_config = None
 

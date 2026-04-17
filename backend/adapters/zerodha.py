@@ -18,18 +18,30 @@ class ZerodhaAdapter(BaseAdapter):
         self.user_id = None
         
     def _load_credentials(self):
-        """Load API key and access token from Config"""
+        """Load API key and access token from Environment or Config"""
+        import os
+        
+        # 1. Try Environment Variables first
+        self.api_key = os.getenv('ZERODHA_API_KEY')
+        self.access_token = os.getenv('ZERODHA_ACCESS_TOKEN')
+        self.user_id = os.getenv('ZERODHA_USER_ID')
+        
+        # 2. Fallback to Config Table if not in environment
         with Session(engine) as session:
-            api_key_config = session.get(Config, "zerodha_api_key")
-            token_config = session.get(Config, "zerodha_access_token")
-            user_config = session.get(Config, "zerodha_user_id")
+            if not self.api_key:
+                api_key_config = session.get(Config, "zerodha_api_key")
+                if api_key_config:
+                    self.api_key = api_key_config.value
             
-            if api_key_config:
-                self.api_key = api_key_config.value
-            if token_config:
-                self.access_token = token_config.value
-            if user_config:
-                self.user_id = user_config.value
+            if not self.access_token:
+                token_config = session.get(Config, "zerodha_access_token")
+                if token_config:
+                    self.access_token = token_config.value
+            
+            if not self.user_id:
+                user_config = session.get(Config, "zerodha_user_id")
+                if user_config:
+                    self.user_id = user_config.value
                 
     def authenticate(self):
         """Authenticate using stored access token"""

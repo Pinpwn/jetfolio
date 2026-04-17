@@ -147,8 +147,8 @@ class AnalysisEngine:
         
         scraper = Scraper()
         
-        config = self.session.get(Config, "perplexity_api_key")
-        api_key = config.value if config else None
+        from backend.security import get_api_key
+        api_key = get_api_key(self.session, "perplexity_api_key")
         llm = LLMService(api_key=api_key)
 
         async def _enrich_with_reason(item):
@@ -207,8 +207,8 @@ class AnalysisEngine:
         stocks = self.session.exec(select(Stock)).all()
         
         # Init LLM
-        config = self.session.get(Config, "perplexity_api_key")
-        api_key = config.value if config else None
+        from backend.security import get_api_key
+        api_key = get_api_key(self.session, "perplexity_api_key")
         llm = LLMService(api_key=api_key)
         
         # Instantiate Scraper for Deep Intel
