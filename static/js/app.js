@@ -43,7 +43,42 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('create-theme-btn').addEventListener('click', () => {
         openCreateTheme();
     });
+    // Start polling for background status
+    pollBackgroundStatus();
 });
+
+// Polling for Sync Status
+async function pollBackgroundStatus() {
+    const pill = document.getElementById('sync-status-pill');
+    const text = document.getElementById('sync-status-text');
+
+    // Poll every 2 seconds
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/background-status');
+            const status = await res.json();
+
+            // Logic: If any task is running (sync or refresh)
+            const isRunning = status.sync_running || status.refresh_running;
+
+            if (isRunning) {
+                pill.classList.remove('hidden');
+                if (status.sync_running) text.textContent = "Syncing Portfolio...";
+                else if (status.refresh_running) text.textContent = "Refreshing News...";
+            } else {
+                // If it was visible, hide it and maybe refresh data once
+                if (!pill.classList.contains('hidden')) {
+                    pill.classList.add('hidden');
+                    // Optional: Auto refresh view when done
+                    refreshAll();
+                    showToast("Sync Complete", "success");
+                }
+            }
+        } catch (e) {
+            console.error("Status poll failed", e);
+        }
+    }, 2000);
+}
 
 window.closeModal = (modalId) => {
     document.getElementById(modalId).classList.add('hidden');
