@@ -245,7 +245,7 @@ class LLMService:
         
         result = await self._make_request(prompt)
         if not result:
-             return {
+            return {
                 "summary": "Portfolio analysis unavailable",
                 "positives": ["Diversified"], "negatives": ["Monitor market"], "references": []
             }
