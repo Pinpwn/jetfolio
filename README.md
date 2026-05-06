@@ -1,89 +1,51 @@
 # Jetfolio
 
-**Jetfolio** is a professional stock portfolio management and analysis dashboard. It combines multi-broker integration with advanced AI capabilities to provide a unified view of your investments, sentiment analysis, and automated market insights.
+**Jetfolio** is a unified investment dashboard that bridges the gap between brokerage data and actionable intelligence. It aggregates holdings from multiple platforms and leverages state-of-the-art AI to provide real-time performance tracking, automated sentiment analysis, and deep market insights.
 
 ---
 
-## 🚀 About the Project
+## 🚀 Overview
 
-Jetfolio was built to bridge the gap between traditional portfolio tracking and modern AI-driven analysis. It allows investors to aggregate holdings from multiple platforms (like Zerodha and Vested), monitor performance in real-time, and leverage LLMs (Local Ollama, Perplexity, or Groq) to understand the "why" behind market movements.
-
-### **Core Technologies**
-- **Backend:** Python, FastAPI, SQLModel (ORM)
-- **Database:** SQLite
-- **AI Integration:** Perplexity AI, Groq, and Local Ollama
-- **Security:** AES-256-GCM encryption for credentials at rest
-- **Frontend:** Responsive HTML5, Vanilla CSS, and Asynchronous JavaScript
-
----
+In today's fragmented financial landscape, monitoring a diverse portfolio across multiple brokers is often cumbersome. Jetfolio solves this by providing a single, INR-denominated view of your global investments. Beyond simple tracking, it integrates a sophisticated AI layer that analyzes news, detects significant events, and explains the "why" behind market volatility—all while keeping your sensitive data secure and private.
 
 ## ✨ Key Features
 
-### **1. Unified Portfolio Dashboard**
-- **Multi-Platform Sync:** Consolidate holdings from Zerodha (Kite Connect), Vested, and manual entries into a single INR-denominated view.
-- **Real-Time Analytics:** Track total value, day change, and overall growth with automated currency conversion for US holdings.
-- **Asset Allocation:** Visual breakdown of portfolio distribution across different asset classes.
-
-### **2. Investment Themes (Baskets)**
-- **Categorization:** Group stocks into custom themes or strategy-based baskets.
-- **Performance Tracking:** Monitor the specific ROI and contribution of individual investment theses.
-
-### **3. AI-Powered Intelligence**
-- **Automated Summaries:** Generate AI-driven assessments of individual themes and your overall portfolio.
-- **Movement Analysis:** One-click analysis of significant stock surges or drops using real-time web-search enabled LLMs.
-- **Deep Intel:** Integrated geopolitical and macroeconomic risk assessments for your holdings.
-
-### **4. Smart News & Sentiment**
-- **Modular Scraping:** Fetches curated news from Yahoo Finance, Google News, and Economic Times.
-- **Sentiment Engine:** Background processing of news articles to determine market sentiment (Positive/Negative/Neutral).
+*   **Unified Dashboard:** Aggregates holdings from **Zerodha (Kite Connect)**, **Vested**, and manual entries into a consolidated view with real-time valuation and currency conversion.
+*   **AI-Powered Insights:** Leverages Perplexity, Groq, or **Local Ollama** to generate portfolio summaries and perform deep-dive analysis on stock movements.
+*   **Themed Baskets:** Organize your investments into custom themes or strategy-based baskets to track the ROI of specific investment theses.
+*   **Smart News Engine:** A modular scraper that fetches curated news from global sources and performs background sentiment analysis (Positive/Negative/Neutral).
+*   **Privacy Centric:** Support for local LLM processing ensures your financial data never leaves your infrastructure for analysis.
 
 ---
 
-## 🛠️ Setup Instructions
-
-### **Prerequisites**
-- **Python 3.9+**
-- **Virtual Environment** (recommended)
-- **Ollama** (optional, for local AI processing)
+## 🛠️ Quick Start
 
 ### **1. Installation**
-Clone the repository and install the required dependencies:
 ```bash
 git clone https://github.com/YourUsername/jetfolio.git
 cd jetfolio
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ### **2. Configuration**
-Jetfolio requires an encryption key to secure your API credentials in the local database.
-
-**Set your Encryption Key:**
+Jetfolio uses **AES-256-GCM** to secure your API credentials. You must set an encryption key in your environment:
 ```bash
-# Generate a secure key
 export ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 ```
 
-**Optional: Environment Credentials**
-You can set your API keys as environment variables to bypass database storage entirely:
-```bash
-export ZERODHA_API_KEY="your_key"
-export PERPLEXITY_API_KEY="your_pplx_key"
-export LLM_PROVIDER="perplexity" # Options: perplexity, groq, local
-```
-
-### **3. Running the Platform**
-Launch the server using the provided startup script:
+### **3. Launch**
 ```bash
 chmod +x run_server.sh
 ./run_server.sh
 ```
-The dashboard will be available at **`http://127.0.0.1:8000`**.
+Access your dashboard at **`http://127.0.0.1:8000`**.
 
 ---
 
 ## 🔒 Security & Privacy
-- **Encryption at Rest:** All sensitive broker tokens and AI keys are encrypted using AES-256-GCM.
-- **Zero-Trust Architecture:** The platform prioritizes environment variables over database storage for maximum security.
-- **Local First:** Support for local LLMs (via Ollama) ensures your portfolio data never leaves your machine for analysis.
+
+*   **Credential Security:** All broker tokens and API keys are encrypted at rest.
+*   **Environment Priority:** Credentials provided via environment variables (e.g., `ZERODHA_API_KEY`) are prioritized and never stored in the database.
+*   **Local First:** Full compatibility with local AI models via Ollama allows for powerful analysis with zero cloud dependency.
