@@ -531,7 +531,7 @@ GET /api/zerodha/status
 
 ### Get Config Value
 
-Retrieves a configuration value by key.
+Retrieves a configuration value by key. Sensitive values (API keys, tokens) are masked for security.
 
 ```http
 GET /api/config/{key}
@@ -546,13 +546,14 @@ GET /api/config/perplexity_api_key
 ```json
 {
   "key": "perplexity_api_key",
-  "value": "pplx-xxx"
+  "value": "pp...23 (Encrypted)",
+  "is_encrypted": true
 }
 ```
 
 ### Update Config Value
 
-Sets or updates a configuration value.
+Sets or updates a configuration value. Sensitive keys containing "api_key", "api_secret", or "token" are automatically encrypted at rest and validated for format.
 
 ```http
 PUT /api/config/{key}?value={value}
@@ -567,7 +568,8 @@ PUT /api/config/perplexity_api_key?value=pplx-newkey123
 ```json
 {
   "key": "perplexity_api_key",
-  "value": "pplx-newkey123"
+  "value": "******** (Saved Encrypted)",
+  "is_encrypted": true
 }
 ```
 

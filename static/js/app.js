@@ -8,18 +8,77 @@ document.addEventListener('DOMContentLoaded', () => {
     switchTab('dashboard');
 
     document.getElementById('refresh-btn').addEventListener('click', async () => {
+        const loadingToast = window.toast.loading('Scraping news & generating insights...');
         try {
-            await fetch('/api/refresh', { method: 'POST' });
+            const res = await fetch('/api/refresh', { method: 'POST' });
+            const data = await res.json();
+            loadingToast.remove();
+            window.toast.success(`Refreshed! Added ${data.articles_added || 0} news articles`);
             refreshAll();
         } catch (err) {
+            loadingToast.remove();
+            window.toast.error('Failed to refresh insights');
             console.error(err);
         }
     });
 
+    const syncBtn = document.getElementById('sync-btn');
+    if (syncBtn) {
+        syncBtn.addEventListener('click', async () => {
+            const loadingToast = window.toast.loading('Syncing portfolio from broker...');
+            try {
+                const res = await fetch('/api/sync', { method: 'POST' });
+                if (!res.ok) throw new Error('Sync failed');
+                loadingToast.remove();
+                window.toast.success('Portfolio synced successfully!');
+                refreshAll();
+            } catch (err) {
+                loadingToast.remove();
+                window.toast.error('Failed to sync portfolio');
+                console.error(err);
+            }
+        });
+    }
+
     document.getElementById('create-theme-btn').addEventListener('click', () => {
         openCreateTheme();
     });
+    // Start polling for background status
+    pollBackgroundStatus();
 });
+
+// Polling for Sync Status
+async function pollBackgroundStatus() {
+    const pill = document.getElementById('sync-status-pill');
+    const text = document.getElementById('sync-status-text');
+
+    // Poll every 2 seconds
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/background-status');
+            const status = await res.json();
+
+            // Logic: If any task is running (sync or refresh)
+            const isRunning = status.sync_running || status.refresh_running;
+
+            if (isRunning) {
+                pill.classList.remove('hidden');
+                if (status.sync_running) text.textContent = "Syncing Portfolio...";
+                else if (status.refresh_running) text.textContent = "Refreshing News...";
+            } else {
+                // If it was visible, hide it and maybe refresh data once
+                if (!pill.classList.contains('hidden')) {
+                    pill.classList.add('hidden');
+                    // Optional: Auto refresh view when done
+                    refreshAll();
+                    showToast("Sync Complete", "success");
+                }
+            }
+        } catch (e) {
+            console.error("Status poll failed", e);
+        }
+    }, 2000);
+}
 
 window.closeModal = (modalId) => {
     document.getElementById(modalId).classList.add('hidden');
@@ -57,6 +116,7 @@ window.submitTheme = async () => {
     const desc = document.getElementById('theme-desc-input').value;
 
     if (name) {
+        const loadingToast = window.toast.loading('Saving theme...');
         try {
             if (currentEditingThemeId) {
                 // Update
@@ -73,10 +133,13 @@ window.submitTheme = async () => {
                     body: JSON.stringify({ name: name, description: desc || "User created theme" })
                 });
             }
+            loadingToast.remove();
+            window.toast.success('Theme saved successfully!');
             refreshAll(); // Auto-refresh everything
             closeModal('theme-modal');
         } catch (err) {
-            alert("Failed to save theme");
+            loadingToast.remove();
+            window.toast.error("Failed to save theme");
         }
     }
 }
@@ -471,7 +534,9 @@ async function fetchInsights(refresh = false) {
         }
 
     } catch (err) {
-        console.error(err);
+        console.error("Insights Error:", err);
+        const list = document.getElementById('portfolio-insights-list');
+        if (list) list.innerHTML = `<p style="color:var(--danger)">Error loading insights: ${err.message}</p>`;
     }
 }
 
@@ -980,7 +1045,7 @@ async function renderNews() {
     newsList.className = 'news-grid'; // Switch to grid class
 
     try {
-        const res = await fetch('/api/news?days=1');
+        const res = await fetch('/api/news?days=30');
         const news = await res.json();
 
         if (news.length === 0) {
@@ -1007,17 +1072,31 @@ async function renderNews() {
             div.innerHTML = `
                 <div class="news-header" style="display:flex; justify-content:space-between; align-items:start;">
                     <span class="stock-ticker">${article.stock_symbol || 'GEN'}</span>
-                    <span style="
-                        background:${scoreColor}; 
-                        color:#000; 
-                        padding:2px 8px; 
-                        border-radius:12px; 
-                        font-size:0.75rem; 
-                        font-weight:bold;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.2)
-                    " title="Source Credibility: ${score}/10">
-                        ${score}/10
-                    </span>
+                    <div style="display:flex; gap:0.5rem">
+                        <!-- Credibility Badge -->
+                        <span class="news-badge score" style="background:${scoreColor}" title="Source Credibility: ${score}/10">
+                            ${score}/10
+                        </span>
+                        
+                        <!-- Sentiment Badge -->
+                        ${(() => {
+                    const status = (article.processing_status || 'completed').toLowerCase();
+                    const sent = (article.sentiment || 'neutral').toLowerCase();
+
+                    // Pending/Processing State
+                    if (status === 'pending' || status === 'processing' || !article.sentiment) {
+                        return `<span class="news-badge analyzing">Analyzing...</span>`;
+                    }
+
+                    let badgeClass = 'neutral';
+                    let text = 'Neutral';
+
+                    if (sent === 'positive' || sent === 'bullish') { badgeClass = 'success'; text = 'Positive'; }
+                    else if (sent === 'negative' || sent === 'bearish') { badgeClass = 'danger'; text = 'Negative'; }
+
+                    return `<span class="news-badge ${badgeClass}">${text}</span>`;
+                })()}
+                    </div>
                 </div>
                 
                 <h4 class="news-title">${article.title}</h4>
@@ -1120,18 +1199,6 @@ async function fetchThemeSummaries() {
 }
 
 // Settings Management
-async function loadSettings() {
-    try {
-        const res = await fetch('/api/config/perplexity_api_key');
-        const data = await res.json();
-        if (data.value) {
-            document.getElementById('perplexity-api-key-input').value = '••••••••'; // Masked
-        }
-    } catch (err) {
-        console.error(err);
-    }
-}
-
 window.saveApiKey = async () => {
     const input = document.getElementById('perplexity-api-key-input');
     const key = input.value;
@@ -1178,21 +1245,86 @@ if (originalRefreshBtn) {
 // V8: Zerodha Integration Functions
 // Append to app.js
 
-// Update loadSettings to include Zerodha status
+// Update loadSettings to include all provider configs
 async function loadSettings() {
-    // Perplexity API key
+    // 1. LLM Provider Selection
+    try {
+        const res = await fetch('/api/config/llm_provider');
+        const data = await res.json();
+        if (data.value) {
+            const select = document.getElementById('llm-provider-select');
+            if (select) {
+                select.value = data.value;
+                toggleProviderSettings(); // Ensure UI state matches
+            }
+        }
+    } catch (err) { console.error(err); }
+
+    // 2. Perplexity Config
     try {
         const res = await fetch('/api/config/perplexity_api_key');
         const data = await res.json();
         if (data.value) {
-            document.getElementById('perplexity-api-key-input').value = '••••••••';
+            const input = document.getElementById('perplexity-api-key-input');
+            if (input) input.value = '••••••••';
         }
-    } catch (err) {
-        console.error(err);
-    }
+    } catch (err) { console.error(err); }
 
-    // V8: Check Zerodha status
+    // 3. Groq Config
+    try {
+        const resKey = await fetch('/api/config/groq_api_key');
+        const dataKey = await resKey.json();
+        if (dataKey.value) {
+            const input = document.getElementById('groq-api-key-input');
+            if (input) {
+                input.value = '••••••••';
+                fetchGroqModels();
+            }
+        }
+    } catch (err) { console.error(err); }
+
+    // 4. Local Config
+    try {
+        const resOllama = await fetch('/api/config/ollama_url');
+        const dataOllama = await resOllama.json();
+        if (dataOllama.value) {
+            const input = document.getElementById('ollama-url-input');
+            if (input) input.value = dataOllama.value;
+        }
+    } catch (err) { console.error(err); }
+
+    // 5. Zerodha Status
     checkZerodhaStatus();
+}
+
+window.saveLLMProvider = async () => {
+    const select = document.getElementById('llm-provider-select');
+    const provider = select.value;
+
+    try {
+        await fetch(`/api/config/llm_provider?value=${encodeURIComponent(provider)}`, { method: 'PUT' });
+
+        let providerName = 'Perplexity AI';
+        if (provider === 'local') providerName = 'Local LLM';
+        if (provider === 'groq') providerName = 'Groq Cloud';
+
+        alert(`LLM Provider set to: ${providerName}`);
+    } catch (err) {
+        alert('Failed to save provider setting');
+    }
+}
+
+window.saveLocalLLMConfig = async () => {
+    const ollamaUrl = document.getElementById('ollama-url-input').value;
+
+    try {
+        if (ollamaUrl) {
+            await fetch(`/api/config/ollama_url?value=${encodeURIComponent(ollamaUrl)}`, { method: 'PUT' });
+        }
+        alert('Local LLM configuration saved!');
+    } catch (err) {
+        alert('Failed to save local config');
+    }
 }
 
 async function checkZerodhaStatus() {
@@ -1210,6 +1342,93 @@ async function checkZerodhaStatus() {
         }
     } catch (err) {
         statusDiv.innerHTML = '<span style="color:var(--danger)">Error checking status</span>';
+    }
+}
+
+// V11: Groq Integration Functions
+
+function toggleProviderSettings() {
+    const provider = document.getElementById('llm-provider-select').value;
+    const perplexitySettings = document.getElementById('perplexity-settings');
+    const groqSettings = document.getElementById('groq-settings');
+    const localSettings = document.getElementById('local-settings');
+
+    // Hide all first
+    if (perplexitySettings) perplexitySettings.classList.add('hidden');
+    if (groqSettings) groqSettings.classList.add('hidden');
+    if (localSettings) localSettings.classList.add('hidden');
+
+    // Show selected
+    if (provider === 'perplexity' && perplexitySettings) {
+        perplexitySettings.classList.remove('hidden');
+    } else if (provider === 'groq' && groqSettings) {
+        groqSettings.classList.remove('hidden');
+    } else if (provider === 'local' && localSettings) {
+        localSettings.classList.remove('hidden');
+    }
+}
+
+async function saveGroqKey() {
+    const input = document.getElementById('groq-api-key-input');
+    const key = input.value;
+
+    if (!key || key === '••••••••') {
+        alert('Please enter a valid Groq API key');
+        return;
+    }
+
+    try {
+        await fetch(`/api/config/groq_api_key?value=${encodeURIComponent(key)}`, { method: 'PUT' });
+        alert('Groq API Key saved!\n\nThe key has been masked (••••••••) for security. You can now fetch models.');
+        input.value = '••••••••';
+        // Auto-fetch models if key behaves valid
+        fetchGroqModels();
+    } catch (err) {
+        console.error(err);
+        alert('Failed to save Groq Key');
+    }
+}
+
+async function fetchGroqModels() {
+    const select = document.getElementById('groq-model-select');
+    select.innerHTML = '<option>Loading...</option>';
+
+    try {
+        const res = await fetch('/api/ai/models/groq');
+        if (!res.ok) throw new Error('Failed to fetch models (Check API Key)');
+        const data = await res.json();
+
+        select.innerHTML = '<option value="" disabled>Select a model...</option>';
+        data.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model;
+            option.textContent = model;
+            select.appendChild(option);
+        });
+
+        // Restore saved selection
+        const savedRes = await fetch('/api/config/groq_model');
+        const savedData = await savedRes.json();
+        if (savedData.value) {
+            select.value = savedData.value;
+        }
+
+    } catch (err) {
+        console.error(err);
+        select.innerHTML = '<option value="" disabled>Error loading models</option>';
+        alert('Could not fetch Groq models. Ensure API Key is saved.');
+    }
+}
+
+async function saveGroqModel() {
+    const model = document.getElementById('groq-model-select').value;
+    if (!model) return;
+
+    try {
+        await fetch(`/api/config/groq_model?value=${encodeURIComponent(model)}`, { method: 'PUT' });
+        alert(`Groq Model set to: ${model}`);
+    } catch (err) {
+        alert('Failed to save model config');
     }
 }
 

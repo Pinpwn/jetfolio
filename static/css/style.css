@@ -8,6 +8,7 @@
     --text-muted: #a1a1aa;
     --success: #10b981;
     --danger: #ef4444;
+    --warning: #f59e0b;
     --border: #2e2e36;
 }
 
@@ -40,7 +41,7 @@ body {
 .logo h2 {
     font-weight: 700;
     margin-bottom: 3rem;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -164,7 +165,6 @@ header {
 .nav-links li.active a {
     color: var(--primary);
     background: rgba(99, 102, 241, 0.1);
-    /* Subtle active bg */
     border-radius: 6px;
     padding-left: 1rem;
 }
@@ -172,7 +172,6 @@ header {
 /* Table Actions */
 .row-actions {
     display: flex;
-    /* Permanent */
     gap: 0.5rem;
 }
 
@@ -268,7 +267,6 @@ header {
 .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    /* Equal width columns */
     gap: 1.5rem;
     margin-bottom: 2rem;
 }
@@ -284,10 +282,9 @@ header {
     position: relative;
     width: 100%;
     min-height: 0;
-    /* Critical for chart.js resizing in flex */
 }
 
-/* Reusing news-section for Portfolio Summary Widget */
+/* Portfolio Summary Widget */
 .news-section {
     height: 400px;
     display: flex;
@@ -297,9 +294,7 @@ header {
 #dashboard-portfolio-summary {
     flex: 1;
     overflow-y: auto;
-    /* Scroll if text is long */
     padding-right: 0.5rem;
-    /* Space for scrollbar */
 }
 
 .news-list {
@@ -393,29 +388,22 @@ td {
 /* Slide Over styles */
 #analysis-modal.modal-overlay {
     justify-content: flex-end;
-    /* Align to right */
     align-items: stretch;
-    /* Full Height */
     padding: 0;
 }
 
 .slide-over-content {
     background: var(--bg-card);
     width: 40vw;
-    /* User requested ~40% */
     min-width: 400px;
     max-width: 100%;
     height: 100%;
-    /* Stretch fills parent */
     box-shadow: -5px 0 25px rgba(0, 0, 0, 0.7);
     display: flex;
     flex-direction: column;
     animation: slideIn 0.3s ease-out;
     border-left: 1px solid var(--border);
     border-radius: 0;
-    /* Strict square corners */
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
 }
 
 .slide-over-header {
@@ -425,7 +413,6 @@ td {
     justify-content: space-between;
     align-items: center;
     background: var(--bg-card-hover);
-    /* Slight distinction */
 }
 
 .slide-over-body {
@@ -551,7 +538,7 @@ td {
     margin-bottom: 0.2rem;
 }
 
-/* News Grid Redesign - Beautified */
+/* News Grid */
 .news-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -589,7 +576,7 @@ td {
     left: 0;
     width: 100%;
     height: 4px;
-    background: linear-gradient(90deg, var(--primary), var(--accent));
+    background: linear-gradient(90deg, var(--primary), #a855f7);
     opacity: 0;
     transition: opacity 0.3s;
 }
@@ -651,20 +638,7 @@ td {
     color: var(--text-muted);
 }
 
-/* Animations */
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Refresh Icon Button - Specific */
+/* Refresh Icon Button */
 .refresh-icon-btn {
     background: transparent;
     border: 1px solid transparent;
@@ -686,6 +660,100 @@ td {
     transform: rotate(180deg);
 }
 
-.refresh-icon-btn svg {
-    pointer-events: none;
+/* News Badges */
+.news-badge {
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    letter-spacing: 0.3px;
+}
+
+.news-badge.score {
+    color: #000;
+}
+
+.news-badge.warning {
+    background: var(--warning);
+    color: #000;
+}
+
+.news-badge.success {
+    background: var(--success);
+}
+
+.news-badge.danger {
+    background: var(--danger);
+}
+
+.news-badge.neutral {
+    background: #374151;
+    color: #e5e7eb;
+}
+
+.news-badge.analyzing {
+    background: var(--warning);
+    color: #000;
+    animation: pulseBadge 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseBadge {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Status Pill & Breathing Animation */
+@keyframes breathing-opacity {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+
+.breathing-animation {
+    animation: breathing-opacity 1.5s infinite ease-in-out;
+    background-color: var(--primary);
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-pill {
+    display: flex;
+    align-items: center;
+    background: rgba(99, 102, 241, 0.1); 
+    border: 1px solid var(--primary);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--primary);
+    margin-right: auto;
+    margin-left: 20px;
+}
+
+.header-status {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
