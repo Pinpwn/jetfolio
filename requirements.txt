@@ -1,31 +1,16 @@
-# Stock Dashboard - Python Dependencies
-
-# Web Framework
+beautifulsoup4==4.12.3
+cryptography==3.4.8
 fastapi==0.123.4
-uvicorn[standard]==0.34.0
-
-# Database & ORM
-sqlmodel==0.0.27
+httpx==0.26.0
+jinja2
+kiteconnect==5.0.1
+lxml==5.3.0
 pydantic==2.11.9
 pydantic-settings==2.11.0
-
-# HTTP Requests & Scraping
-requests==2.31.0
-httpx==0.26.0
-beautifulsoup4==4.12.3
-lxml==5.3.0
-
-# Broker APIs
-kiteconnect==5.0.1
-
-# Financial Data
-yfinance>=0.2.66
 PySocks>=1.7.1
-
-# Security
-cryptography==3.4.8
-python-jose[cryptography]==3.5.0
-
-# Utilities
 python-dateutil==2.9.0.post0
-jinja2
+python-jose[cryptography]==3.5.0
+requests==2.31.0
+sqlmodel==0.0.27
+uvicorn[standard]==0.34.0
+yfinance>=0.2.66

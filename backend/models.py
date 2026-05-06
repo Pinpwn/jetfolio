@@ -122,7 +122,7 @@ class Stock(SQLModel, table=True):
     # Bidirectional relationship with themes
     themes: List[Theme] = Relationship(back_populates="stocks", link_model=StockTheme)
     
-    # New V9: Previous Close for Day Change Calc
+    # Previous Close for Day Change calculation
     previous_close: Optional[float] = Field(default=None)
     weekly_change_percentage: Optional[float] = Field(default=None)
 

@@ -1,5 +1,0 @@
-Implement the following changes:
-- Display the cached data until the data(stocks/news/summary) is refreshed
-- Despite the news finding multiple articles, it always says added 0 articles. why is that? fix it
-- When the news refresh is running the following doesnt work: Update API keys, refresh logs etc.
-- If the LLM API key gives error then do not continue with LLM operations in the current loop. This should not impact the news already fetched.

@@ -65,7 +65,7 @@ class StockCreate(BaseModel):
     quantity: float
     average_price: float
     currency: str = "INR"
-    asset_class: str = "EQUITY" # New field, default EQUITY
+    asset_class: str = "EQUITY"
 
 class StockTransaction(BaseModel):
     action: Literal["buy", "sell", "edit"]
@@ -76,31 +76,6 @@ class StockTransaction(BaseModel):
 def on_startup():
     """Application startup initialization. Sets up database and performs schema migrations."""
     create_db_and_tables()
-    
-    # Manual schema migration: Ensure is_encrypted column exists in Config table
-    # Standard SQLModel metadata.create_all() does not modify existing tables.
-    try:
-        from sqlalchemy import text
-        from backend.database import engine
-        with engine.connect() as conn:
-            # Check if is_encrypted exists in config table
-            res = conn.execute(text("PRAGMA table_info(config)"))
-            columns = [row[1] for row in res.fetchall()]
-            if 'is_encrypted' not in columns:
-                logger.info("Database migration: Adding 'is_encrypted' column to config table")
-                conn.execute(text("ALTER TABLE config ADD COLUMN is_encrypted BOOLEAN DEFAULT 0"))
-            
-            # Check for last_analyzed in stock table
-            res_stock = conn.execute(text("PRAGMA table_info(stock)"))
-            columns_stock = [row[1] for row in res_stock.fetchall()]
-            if 'last_analyzed' not in columns_stock:
-                logger.info("Database migration: Adding 'last_analyzed' column to stock table")
-                conn.execute(text("ALTER TABLE stock ADD COLUMN last_analyzed DATETIME"))
-                
-            conn.commit()
-    except Exception as e:
-        logger.warning(f"Database migration check failed: {e}")
-        
     logger.info("Stock Dashboard application started")
 
 def get_llm_service(session: Session) -> LLMService:
@@ -322,7 +297,7 @@ def remove_stock_from_theme_api(theme_id: int, stock_id: int, session: Session =
     return {"status": "removed"}
 
 @app.post("/api/refresh")
-def refresh_insights_endpoint(background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+def refresh_insights(background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
     """Refresh insights AND scrape news for all stocks"""
     logger.info("Starting refresh insights + news scraping")
     
@@ -437,7 +412,7 @@ def get_background_status():
     return task_manager.get_status()
 
 @app.get("/api/stocks/{symbol}/analysis")
-async def get_stock_analysis_endpoint(symbol: str, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def get_stock_analysis(symbol: str, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
     scraper = NewsScraperService()
     llm = get_llm_service(session)
     analysis_data = await scraper.fetch_stock_analysis(symbol, llm_service=llm)
@@ -567,7 +542,7 @@ def get_logs(lines: int = 100):
     return {"logs": "".join(log_lines)}
 
 @app.get("/api/llm/theme-summaries")
-async def get_theme_summaries_endpoint(session: Session = Depends(get_session)):
+async def get_theme_summaries(session: Session = Depends(get_session)):
     """Generate LLM summaries for all themes with caching"""
     llm = get_llm_service(session)
     themes = session.exec(select(Theme)).all()
@@ -612,7 +587,7 @@ async def get_theme_summaries_endpoint(session: Session = Depends(get_session)):
     return summaries
 
 @app.get("/api/ai/models/{provider}")
-async def get_available_models_endpoint(provider: str, session: Session = Depends(get_session)):
+async def get_available_models(provider: str, session: Session = Depends(get_session)):
     config_key = session.get(Config, f"{provider}_api_key")
     api_key = get_secure_config().get_value(config_key) if config_key else None
 
@@ -624,7 +599,7 @@ async def get_available_models_endpoint(provider: str, session: Session = Depend
     return {"models": models}
 
 @app.get("/api/llm/portfolio-summary")
-async def get_ai_portfolio_summary_endpoint(refresh: bool = False, session: Session = Depends(get_session)):
+async def get_ai_portfolio_summary(refresh: bool = False, session: Session = Depends(get_session)):
     """Generate LLM summary for entire portfolio with caching"""
     llm = get_llm_service(session)
     
@@ -685,7 +660,7 @@ async def get_ai_portfolio_summary_endpoint(refresh: bool = False, session: Sess
     return summary
 
 @app.post("/api/clear-llm-cache")
-def clear_llm_cache_endpoint(session: Session = Depends(get_session)):
+def clear_llm_cache(session: Session = Depends(get_session)):
     for cache in session.exec(select(Config).where(Config.key.like("%summary%"))).all():
         session.delete(cache)
     session.commit()
@@ -693,7 +668,7 @@ def clear_llm_cache_endpoint(session: Session = Depends(get_session)):
     return {"status": "cache_cleared"}
 
 @app.get("/api/zerodha/login")
-def zerodha_login_endpoint(session: Session = Depends(get_session)):
+def zerodha_login(session: Session = Depends(get_session)):
     config = session.get(Config, "zerodha_api_key")
     api_key = get_secure_config().get_value(config) if config else None
     
@@ -706,7 +681,7 @@ def zerodha_login_endpoint(session: Session = Depends(get_session)):
     return RedirectResponse(url=login_url)
 
 @app.get("/api/zerodha/callback")
-def zerodha_callback_endpoint(request_token: str, session: Session = Depends(get_session)):
+def zerodha_callback(request_token: str, session: Session = Depends(get_session)):
     try:
         api_key_config = session.get(Config, "zerodha_api_key")
         api_secret_config = session.get(Config, "zerodha_api_secret")
@@ -758,7 +733,7 @@ def zerodha_status_endpoint(session: Session = Depends(get_session)):
     }
 
 @app.post("/api/stocks", response_model=Stock)
-def create_manual_stock_endpoint(payload: StockCreate, session: Session = Depends(get_session)):
+def create_manual_stock(payload: StockCreate, session: Session = Depends(get_session)):
     try:
         symbol_query = payload.symbol.upper()
         if payload.asset_class == "CRYPTO":

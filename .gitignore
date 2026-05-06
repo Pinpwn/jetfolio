@@ -92,5 +92,21 @@ tmp/
 
 # Local LLM Data
 backend/ollama_data/
+backend/finbert_data/
 *.gguf
+
+# Local Database
 portfolio.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Local process artifacts
+.server_pid
+
+# Local secrets (redundant but safe)
+.env
+.env.*
+*.key
+*.pem
+*.cert

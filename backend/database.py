@@ -42,24 +42,35 @@ engine = create_engine(
 def create_db_and_tables():
     """
     Create all database tables from SQLModel metadata.
-    
-    This function should be called once during application initialization
-    to set up the database schema. It creates tables for all models
-    imported above.
-    
-    Tables created:
-        - stock: Portfolio holdings
-        - theme: Investment themes/categories
-        - stocktheme: Stock-theme relationships
-        - portfoliosnapshot: Historical value tracking
-        - timelineevent: Significant portfolio events
-        - newsarticle: News data for stocks
-        - config: Application settings and API keys
-    
-    Note: This is idempotent - safe to call multiple times.
-          Existing tables won't be modified.
     """
     SQLModel.metadata.create_all(engine)
+    run_migrations()
+
+
+def run_migrations():
+    """
+    Perform manual schema migrations for existing databases.
+    """
+    from sqlalchemy import text
+    try:
+        with engine.connect() as conn:
+            # 1. Config table: Add is_encrypted
+            res = conn.execute(text("PRAGMA table_info(config)"))
+            columns = [row[1] for row in res.fetchall()]
+            if 'is_encrypted' not in columns:
+                logger.info("Migration: Adding 'is_encrypted' to config")
+                conn.execute(text("ALTER TABLE config ADD COLUMN is_encrypted BOOLEAN DEFAULT 0"))
+            
+            # 2. Stock table: Add last_analyzed
+            res_stock = conn.execute(text("PRAGMA table_info(stock)"))
+            columns_stock = [row[1] for row in res_stock.fetchall()]
+            if 'last_analyzed' not in columns_stock:
+                logger.info("Migration: Adding 'last_analyzed' to stock")
+                conn.execute(text("ALTER TABLE stock ADD COLUMN last_analyzed DATETIME"))
+                
+            conn.commit()
+    except Exception as e:
+        logger.warning(f"Migration check failed: {e}")
 
 
 def get_session():
