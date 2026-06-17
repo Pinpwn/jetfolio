@@ -79,3 +79,11 @@ Before providing a final code snippet, ask yourself:
 3. **Will this code be readable by a human developer in 6 months?**
 
 > **Note:** If a requested feature conflicts with these security or performance guidelines, the AI must flag the conflict and suggest a safer/more efficient alternative.
+
+---
+
+## 6. Known Architectural Technical Debt
+
+**FastAPI Event Loop Blocking (Async/Sync Mismatch):**
+Currently, some background tasks (`_run_sync`, `_run_refresh`) are defined as `async def` but use synchronous SQLModel/SQLAlchemy `Session` commits. This blocks the main FastAPI event loop during database writes.
+*   **Future Fix Required:** The codebase needs to be migrated to use `AsyncSession` from `sqlalchemy.ext.asyncio` for all database interactions. In the interim, any new heavy synchronous database operations should be wrapped in `anyio.to_thread.run_sync()` or standard threadpool decorators to avoid freezing the server.

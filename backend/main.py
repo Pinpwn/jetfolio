@@ -181,6 +181,9 @@ def get_portfolio_summary(session: Session = Depends(get_session)):
     day_change_total = 0.0
     invested_value_inr = 0.0
     
+    from backend.services.currency_service import CurrencyService
+    usd_rate = CurrencyService().get_usd_inr_rate()
+    
     for stock in stocks:
         val = stock.quantity * stock.current_price
         invested = stock.quantity * stock.average_price
@@ -192,11 +195,9 @@ def get_portfolio_summary(session: Session = Depends(get_session)):
         
         # Normalize to INR for pie chart
         if stock.currency == "USD":
-            from backend.services.currency_service import CurrencyService
-            rate = CurrencyService().get_usd_inr_rate()
-            val *= rate
-            change *= rate
-            invested *= rate
+            val *= usd_rate
+            change *= usd_rate
+            invested *= usd_rate
             
         current_portfolio_value += val
         day_change_total += change

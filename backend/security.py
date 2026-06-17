@@ -193,7 +193,7 @@ def get_api_key(session, key_name: str) -> Optional[str]:
     # 2. Fallback to Database Config
     from backend.models import Config
     config = session.get(Config, key_name)
-    return config.value if config else None
+    return get_secure_config().get_value(config) if config else None
 
 
 # Global instance for use across application

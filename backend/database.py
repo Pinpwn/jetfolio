@@ -33,9 +33,7 @@ connect_args = {"check_same_thread": False}
 # Increased pool size to handle background analysis threads
 engine = create_engine(
     sqlite_url, 
-    connect_args=connect_args,
-    pool_size=20,
-    max_overflow=20
+    connect_args=connect_args
 )
 
 
