@@ -16,6 +16,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from sqlmodel import Session, select
+from sqlmodel.ext.asyncio.session import AsyncSession
+from backend.database import engine as async_engine
 from typing import List, Optional, Literal
 from backend.services.price_fetcher import PriceFetcher
 from backend.services.scraper import NewsScraperService
@@ -78,7 +80,7 @@ def on_startup():
     create_db_and_tables()
     logger.info("Stock Dashboard application started")
 
-def get_llm_service(session: Session) -> LLMService:
+async def get_llm_service(session: AsyncSession) -> LLMService:
     """
     Helper to initialize LLMService with configured provider and credentials.
     Priority: Environment Variables > Encrypted Database Config.
@@ -89,7 +91,7 @@ def get_llm_service(session: Session) -> LLMService:
     # Priority: LLM_PROVIDER env var > llm_provider db config
     provider = os.getenv("LLM_PROVIDER")
     if not provider:
-        config_provider = session.get(Config, "llm_provider")
+        config_provider = await session.get(Config, "llm_provider")
         provider = config_provider.value if config_provider else "perplexity"
     
     # Initialize defaults
@@ -103,12 +105,12 @@ def get_llm_service(session: Session) -> LLMService:
         api_key = get_api_key(session, "groq_api_key")
         model = os.getenv("GROQ_MODEL")
         if not model:
-            config_model = session.get(Config, "groq_model")
+            config_model = await session.get(Config, "groq_model")
             model = get_secure_config().get_value(config_model) if config_model else "llama3-8b-8192"
     elif provider == "local":
         ollama_url = os.getenv("OLLAMA_URL")
         if not ollama_url:
-            config_ollama = session.get(Config, "ollama_url")
+            config_ollama = await session.get(Config, "ollama_url")
             ollama_url = get_secure_config().get_value(config_ollama) if config_ollama else None
 
     return LLMService(
@@ -123,7 +125,7 @@ def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/api/sync")
-def sync_data(background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def sync_data(background_tasks: BackgroundTasks, session: AsyncSession = Depends(get_session)):
     """Trigger data sync from all connected platforms + Fetch News"""
     # Return current data immediately, run sync in background
     async def _run_sync():
@@ -132,7 +134,7 @@ def sync_data(background_tasks: BackgroundTasks, session: Session = Depends(get_
         try:
             # Create new session for background task
             from backend.database import engine
-            with Session(engine) as bg_session:
+            async with AsyncSession(async_engine) as bg_session:
                 sync_engine = SyncEngine()
                 await sync_engine.run_sync()
                 
@@ -150,8 +152,8 @@ def sync_data(background_tasks: BackgroundTasks, session: Session = Depends(get_
     background_tasks.add_task(_run_sync)
     
     # Return current portfolio data immediately
-    stocks = session.exec(select(Stock)).all()
-    snapshot = session.exec(select(PortfolioSnapshot).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)).first()
+    stocks = (await session.exec(select(Stock))).all()
+    snapshot = (await session.exec(select(PortfolioSnapshot).order_by(PortfolioSnapshot.timestamp.desc()).limit(1))).first()
     
     return {
         "status": "sync_started",
@@ -161,20 +163,20 @@ def sync_data(background_tasks: BackgroundTasks, session: Session = Depends(get_
     }
 
 @app.get("/api/stocks", response_model=List[StockRead])
-def get_stocks(session: Session = Depends(get_session)):
-    stocks = session.exec(select(Stock)).all()
+async def get_stocks(session: AsyncSession = Depends(get_session)):
+    stocks = (await session.exec(select(Stock))).all()
     return stocks
 
 @app.get("/api/portfolio")
-def get_portfolio_summary(session: Session = Depends(get_session)):
+async def get_portfolio_summary(session: AsyncSession = Depends(get_session)):
     # Get latest snapshot
-    snapshot = session.exec(select(PortfolioSnapshot).order_by(PortfolioSnapshot.timestamp.desc()).limit(1)).first()
+    snapshot = (await session.exec(select(PortfolioSnapshot).order_by(PortfolioSnapshot.timestamp.desc()).limit(1))).first()
     
     analysis_engine = AnalysisEngine(session)
     basket_performance = analysis_engine.calculate_basket_performance()
     
     # Get allocation by asset class
-    stocks = session.exec(select(Stock)).all()
+    stocks = (await session.exec(select(Stock))).all()
     allocation = {}
     
     current_portfolio_value = 0.0
@@ -225,8 +227,8 @@ def get_portfolio_summary(session: Session = Depends(get_session)):
     }
 
 @app.get("/api/themes", response_model=List[ThemeRead])
-def get_themes(session: Session = Depends(get_session)):
-    themes = session.exec(select(Theme)).all()
+async def get_themes(session: AsyncSession = Depends(get_session)):
+    themes = (await session.exec(select(Theme))).all()
     # Calculate count and value manually
     from backend.services.currency_service import CurrencyService
     usd_rate = CurrencyService().get_usd_inr_rate()
@@ -249,16 +251,16 @@ def get_themes(session: Session = Depends(get_session)):
     return res
 
 @app.post("/api/themes", response_model=Theme)
-def create_theme(theme: ThemeCreate, session: Session = Depends(get_session)):
+async def create_theme(theme: ThemeCreate, session: AsyncSession = Depends(get_session)):
     db_theme = Theme(name=theme.name, description=theme.description)
     session.add(db_theme)
-    session.commit()
-    session.refresh(db_theme)
+    await session.commit()
+    await session.refresh(db_theme)
     return db_theme
 
 @app.put("/api/themes/{theme_id}")
-def update_theme(theme_id: int, theme_data: ThemeUpdate, session: Session = Depends(get_session)):
-    theme = session.get(Theme, theme_id)
+async def update_theme(theme_id: int, theme_data: ThemeUpdate, session: AsyncSession = Depends(get_session)):
+    theme = await session.get(Theme, theme_id)
     if not theme:
         raise HTTPException(status_code=404, detail="Theme not found")
         
@@ -268,37 +270,37 @@ def update_theme(theme_id: int, theme_data: ThemeUpdate, session: Session = Depe
         theme.description = theme_data.description
         
     session.add(theme)
-    session.commit()
-    session.refresh(theme)
+    await session.commit()
+    await session.refresh(theme)
     return theme
 
 @app.post("/api/themes/{theme_id}/stocks")
-def add_stocks_to_theme(theme_id: int, payload: StockAssign, session: Session = Depends(get_session)):
-    theme = session.get(Theme, theme_id)
+async def add_stocks_to_theme(theme_id: int, payload: StockAssign, session: AsyncSession = Depends(get_session)):
+    theme = await session.get(Theme, theme_id)
     if not theme:
         raise HTTPException(status_code=404, detail="Theme not found")
         
     for stock_id in payload.stock_ids:
-        stock = session.get(Stock, stock_id)
+        stock = await session.get(Stock, stock_id)
         if stock and stock not in theme.stocks:
             theme.stocks.append(stock)
             
     session.add(theme)
-    session.commit()
+    await session.commit()
     return {"status": "success", "added_count": len(payload.stock_ids)}
 
 @app.delete("/api/themes/{theme_id}/stocks/{stock_id}")
-def remove_stock_from_theme_api(theme_id: int, stock_id: int, session: Session = Depends(get_session)):
-    stock_theme = session.get(StockTheme, (stock_id, theme_id))
+async def remove_stock_from_theme_api(theme_id: int, stock_id: int, session: AsyncSession = Depends(get_session)):
+    stock_theme = await session.get(StockTheme, (stock_id, theme_id))
     if not stock_theme:
         raise HTTPException(status_code=404, detail="Stock not associated with this theme")
     
-    session.delete(stock_theme)
-    session.commit()
+    await session.delete(stock_theme)
+    await session.commit()
     return {"status": "removed"}
 
 @app.post("/api/refresh")
-def refresh_insights(background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def refresh_insights(background_tasks: BackgroundTasks, session: AsyncSession = Depends(get_session)):
     """Refresh insights AND scrape news for all stocks"""
     logger.info("Starting refresh insights + news scraping")
     
@@ -307,7 +309,7 @@ def refresh_insights(background_tasks: BackgroundTasks, session: Session = Depen
         task_manager.start_refresh()
         try:
             from backend.database import engine
-            with Session(engine) as bg_session:
+            async with AsyncSession(async_engine) as bg_session:
                 analysis_engine = AnalysisEngine(bg_session)
                 
                 # 1. Fetch News First (so analysis can use it)
@@ -316,7 +318,8 @@ def refresh_insights(background_tasks: BackgroundTasks, session: Session = Depen
                 # 1.5. Trigger Background Analysis for new articles
                 from backend.services.analysis_manager import AnalysisManager
                 logger.info("Triggering background analysis for pending articles...")
-                AnalysisManager().process_pending_articles_background()
+                import asyncio
+                asyncio.create_task(AnalysisManager().process_pending_articles())
                 
                 # 2. Generate Insights with Deep Intelligence
                 logger.info("Generating insights with Deep Intelligence...")
@@ -327,17 +330,17 @@ def refresh_insights(background_tasks: BackgroundTasks, session: Session = Depen
                 cache_key = "weekly_insights_cache"
                 cache_value = json.dumps(new_insights)
                 temp_config = Config(key=cache_key, value=cache_value, updated_at=datetime.utcnow())
-                bg_session.merge(temp_config)
-                bg_session.commit()
+                await bg_session.merge(temp_config)
+                await bg_session.commit()
                 logger.info("Insights with Deep Intelligence cached successfully")
                 
                 # 4. Run Event Detection
                 await analysis_engine.detect_significant_events()
                 
                 # Clear LLM cache so summaries regenerate with new data
-                for cache in bg_session.exec(select(Config).where(Config.key.like("%summary%"))).all():
-                    bg_session.delete(cache)
-                bg_session.commit()
+                for cache in (await bg_session.exec(select(Config).where(Config.key.like("%summary%")))).all():
+                    await bg_session.delete(cache)
+                await bg_session.commit()
                 
                 logger.info("Background refresh completed successfully")
         except Exception as e:
@@ -351,11 +354,11 @@ def refresh_insights(background_tasks: BackgroundTasks, session: Session = Depen
     return {"status": "refresh_started", "message": "News refresh running in background"}
 
 @app.get("/api/insights")
-def get_insights(refresh: bool = False, background_tasks: BackgroundTasks = None, session: Session = Depends(get_session)):
+async def get_insights(refresh: bool = False, background_tasks: BackgroundTasks = None, session: AsyncSession = Depends(get_session)):
     
     # 1. Check Cache for Insights (Winners/Losers) - 6h expiry
     cache_key = "weekly_insights_cache"
-    cached = session.get(Config, cache_key)
+    cached = await session.get(Config, cache_key)
     insights = None
     is_stale = False
     
@@ -383,7 +386,7 @@ def get_insights(refresh: bool = False, background_tasks: BackgroundTasks = None
             """Background task to regenerate insights"""
             try:
                 from backend.database import engine
-                with Session(engine) as bg_session:
+                async with AsyncSession(async_engine) as bg_session:
                     analysis_engine = AnalysisEngine(bg_session)
                     new_insights = await analysis_engine.generate_insights()
                     new_insights["cached"] = False
@@ -391,8 +394,8 @@ def get_insights(refresh: bool = False, background_tasks: BackgroundTasks = None
                     import json
                     cache_value = json.dumps(new_insights)
                     temp_config = Config(key=cache_key, value=cache_value, updated_at=datetime.utcnow())
-                    bg_session.merge(temp_config)
-                    bg_session.commit()
+                    await bg_session.merge(temp_config)
+                    await bg_session.commit()
                     
                     logger.info("Insights regenerated successfully in background")
             except Exception as e:
@@ -400,7 +403,7 @@ def get_insights(refresh: bool = False, background_tasks: BackgroundTasks = None
         
         background_tasks.add_task(_regenerate_insights)
     
-    timeline = session.exec(select(TimelineEvent).order_by(TimelineEvent.date.desc()).limit(10)).all()
+    timeline = (await session.exec(select(TimelineEvent).order_by(TimelineEvent.date.desc()).limit(10))).all()
     
     return {
         "insights": insights or {"winners": [], "losers": [], "cached": False},
@@ -413,17 +416,17 @@ def get_background_status():
     return task_manager.get_status()
 
 @app.get("/api/stocks/{symbol}/analysis")
-async def get_stock_analysis(symbol: str, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def get_stock_analysis(symbol: str, background_tasks: BackgroundTasks, session: AsyncSession = Depends(get_session)):
     scraper = NewsScraperService()
-    llm = get_llm_service(session)
+    llm = await get_llm_service(session)
     analysis_data = await scraper.fetch_stock_analysis(symbol, llm_service=llm)
     
     # Persist News to DB
-    stock = session.exec(select(Stock).where(Stock.symbol == symbol)).first()
+    stock = (await session.exec(select(Stock).where(Stock.symbol == symbol))).first()
     if stock and "latest_news" in analysis_data:
         for item in analysis_data["latest_news"]:
              url = item.get("url", "#")
-             exists = session.exec(select(NewsArticle).where(NewsArticle.url == url)).first()
+             exists = (await session.exec(select(NewsArticle).where(NewsArticle.url == url))).first()
              if not exists:
                  article = NewsArticle(
                      stock_id=stock.id,
@@ -434,18 +437,18 @@ async def get_stock_analysis(symbol: str, background_tasks: BackgroundTasks, ses
                      processing_status="pending"
                  )
                  session.add(article)
-        session.commit()
+        await session.commit()
     
     from backend.services.analysis_manager import AnalysisManager
     manager = AnalysisManager()
-    background_tasks.add_task(manager.process_pending_articles_background)
+    background_tasks.add_task(manager.process_pending_articles)
 
     return analysis_data
 
 @app.get("/api/config/{key}")
-def get_config(key: str, session: Session = Depends(get_session)):
+async def get_config(key: str, session: AsyncSession = Depends(get_session)):
     """Retrieve configuration value. Masks sensitive values for security."""
-    config = session.get(Config, key)
+    config = await session.get(Config, key)
     if not config:
         return {"key": key, "value": None, "is_encrypted": False}
     
@@ -462,7 +465,7 @@ def get_config(key: str, session: Session = Depends(get_session)):
     return {"key": config.key, "value": display_value, "is_encrypted": config.is_encrypted}
 
 @app.put("/api/config/{key}")
-def update_config(key: str, value: str, session: Session = Depends(get_session)):
+async def update_config(key: str, value: str, session: AsyncSession = Depends(get_session)):
     """Update configuration value with security validation and encryption."""
     logger.info(f"Updating config: {key}")
     
@@ -488,7 +491,7 @@ def update_config(key: str, value: str, session: Session = Depends(get_session))
             logger.error(f"Encryption failed for {safe_key}: {e}")
             raise HTTPException(status_code=500, detail="Security encryption failed. Key not saved.")
     
-    config = session.get(Config, safe_key)
+    config = await session.get(Config, safe_key)
     if config:
         config.value = final_value
         config.is_encrypted = is_encrypted
@@ -497,8 +500,8 @@ def update_config(key: str, value: str, session: Session = Depends(get_session))
         config = Config(key=safe_key, value=final_value, is_encrypted=is_encrypted)
         
     session.add(config)
-    session.commit()
-    session.refresh(config)
+    await session.commit()
+    await session.refresh(config)
     
     display_value = "******** (Saved Encrypted)" if is_encrypted else final_value
     return {"key": config.key, "value": display_value, "is_encrypted": config.is_encrypted}
@@ -509,14 +512,14 @@ class NewsWithSymbol(NewsArticle):
         table = False
 
 @app.get("/api/news", response_model=List[NewsWithSymbol])
-def get_news(days: int = 7, session: Session = Depends(get_session)):
+async def get_news(days: int = 7, session: AsyncSession = Depends(get_session)):
     cutoff = datetime.utcnow() - timedelta(days=days)
-    results = session.exec(
+    results = (await session.exec(
         select(NewsArticle, Stock.symbol)
         .join(Stock, NewsArticle.stock_id == Stock.id)
         .where(NewsArticle.published_date >= cutoff)
         .order_by(NewsArticle.published_date.desc())
-    ).all()
+    )).all()
     
     news_with_symbol = []
     for article, symbol in results:
@@ -528,13 +531,13 @@ def get_news(days: int = 7, session: Session = Depends(get_session)):
     return news_with_symbol
 
 @app.get("/api/news/{stock_id}")
-def get_stock_news(stock_id: int, session: Session = Depends(get_session)):
-    news = session.exec(
+async def get_stock_news(stock_id: int, session: AsyncSession = Depends(get_session)):
+    news = (await session.exec(
         select(NewsArticle)
         .where(NewsArticle.stock_id == stock_id)
         .order_by(NewsArticle.published_date.desc())
         .limit(20)
-    ).all()
+    )).all()
     return news
 
 @app.get("/api/logs")
@@ -543,10 +546,10 @@ def get_logs(lines: int = 100):
     return {"logs": "".join(log_lines)}
 
 @app.get("/api/llm/theme-summaries")
-async def get_theme_summaries(session: Session = Depends(get_session)):
+async def get_theme_summaries(session: AsyncSession = Depends(get_session)):
     """Generate LLM summaries for all themes with caching"""
-    llm = get_llm_service(session)
-    themes = session.exec(select(Theme)).all()
+    llm = await get_llm_service(session)
+    themes = (await session.exec(select(Theme))).all()
     
     summaries = []
     for theme in themes:
@@ -556,7 +559,7 @@ async def get_theme_summaries(session: Session = Depends(get_session)):
         ]
         if stocks_data:
             cache_key = f"theme_summary_{theme.id}"
-            cached = session.get(Config, cache_key)
+            cached = await session.get(Config, cache_key)
             
             if cached and get_secure_config().get_value(cached):
                 try:
@@ -578,8 +581,8 @@ async def get_theme_summaries(session: Session = Depends(get_session)):
                 import json
                 cache_value = json.dumps(summary)
                 temp_config = Config(key=cache_key, value=cache_value, updated_at=datetime.utcnow())
-                session.merge(temp_config)
-                session.commit()
+                await session.merge(temp_config)
+                await session.commit()
             except Exception as e:
                 logger.error(f"Failed to cache theme summary {cache_key}: {e}")
                 session.rollback()
@@ -588,8 +591,8 @@ async def get_theme_summaries(session: Session = Depends(get_session)):
     return summaries
 
 @app.get("/api/ai/models/{provider}")
-async def get_available_models(provider: str, session: Session = Depends(get_session)):
-    config_key = session.get(Config, f"{provider}_api_key")
+async def get_available_models(provider: str, session: AsyncSession = Depends(get_session)):
+    config_key = await session.get(Config, f"{provider}_api_key")
     api_key = get_secure_config().get_value(config_key) if config_key else None
 
     if not api_key:
@@ -600,12 +603,12 @@ async def get_available_models(provider: str, session: Session = Depends(get_ses
     return {"models": models}
 
 @app.get("/api/llm/portfolio-summary")
-async def get_ai_portfolio_summary(refresh: bool = False, session: Session = Depends(get_session)):
+async def get_ai_portfolio_summary(refresh: bool = False, session: AsyncSession = Depends(get_session)):
     """Generate LLM summary for entire portfolio with caching"""
-    llm = get_llm_service(session)
+    llm = await get_llm_service(session)
     
     cache_key = "portfolio_summary"
-    cached = session.get(Config, cache_key)
+    cached = await session.get(Config, cache_key)
     
     if cached and get_secure_config().get_value(cached) and not refresh:
         age_delta = datetime.utcnow() - cached.updated_at
@@ -619,8 +622,8 @@ async def get_ai_portfolio_summary(refresh: bool = False, session: Session = Dep
             except:
                 pass
     
-    stocks = session.exec(select(Stock)).all()
-    themes = session.exec(select(Theme)).all()
+    stocks = (await session.exec(select(Stock))).all()
+    themes = (await session.exec(select(Theme))).all()
     
     from backend.services.currency_service import CurrencyService
     usd_rate = CurrencyService().get_usd_inr_rate()
@@ -651,8 +654,8 @@ async def get_ai_portfolio_summary(refresh: bool = False, session: Session = Dep
         import json
         cache_value = json.dumps(summary)
         temp_config = Config(key=cache_key, value=cache_value, updated_at=datetime.utcnow())
-        session.merge(temp_config)
-        session.commit()
+        await session.merge(temp_config)
+        await session.commit()
     except Exception as e:
         logger.error(f"Failed to cache portfolio summary: {e}")
         session.rollback()
@@ -661,16 +664,16 @@ async def get_ai_portfolio_summary(refresh: bool = False, session: Session = Dep
     return summary
 
 @app.post("/api/clear-llm-cache")
-def clear_llm_cache(session: Session = Depends(get_session)):
-    for cache in session.exec(select(Config).where(Config.key.like("%summary%"))).all():
-        session.delete(cache)
-    session.commit()
+async def clear_llm_cache(session: AsyncSession = Depends(get_session)):
+    for cache in (await session.exec(select(Config).where(Config.key.like("%summary%")))).all():
+        await session.delete(cache)
+    await session.commit()
     logger.info("Cleared LLM cache")
     return {"status": "cache_cleared"}
 
 @app.get("/api/zerodha/login")
-def zerodha_login(session: Session = Depends(get_session)):
-    config = session.get(Config, "zerodha_api_key")
+async def zerodha_login(session: AsyncSession = Depends(get_session)):
+    config = await session.get(Config, "zerodha_api_key")
     api_key = get_secure_config().get_value(config) if config else None
     
     if not api_key:
@@ -682,10 +685,10 @@ def zerodha_login(session: Session = Depends(get_session)):
     return RedirectResponse(url=login_url)
 
 @app.get("/api/zerodha/callback")
-def zerodha_callback(request_token: str, session: Session = Depends(get_session)):
+async def zerodha_callback(request_token: str, session: AsyncSession = Depends(get_session)):
     try:
-        api_key_config = session.get(Config, "zerodha_api_key")
-        api_secret_config = session.get(Config, "zerodha_api_secret")
+        api_key_config = await session.get(Config, "zerodha_api_key")
+        api_secret_config = await session.get(Config, "zerodha_api_secret")
         
         api_key = get_secure_config().get_value(api_key_config) if api_key_config else None
         api_secret = get_secure_config().get_value(api_secret_config) if api_secret_config else None
@@ -703,7 +706,7 @@ def zerodha_callback(request_token: str, session: Session = Depends(get_session)
         secure_mgr = get_secure_config()
         
         for key, val in [("zerodha_access_token", access_token), ("zerodha_user_id", user_id)]:
-            config = session.get(Config, key)
+            config = await session.get(Config, key)
             enc_val = secure_mgr.encrypt(val)
             if config:
                 config.value = enc_val
@@ -713,7 +716,7 @@ def zerodha_callback(request_token: str, session: Session = Depends(get_session)
                 config = Config(key=key, value=enc_val, is_encrypted=True)
             session.add(config)
         
-        session.commit()
+        await session.commit()
         logger.info(f"Zerodha OAuth successful for user: {user_id}")
         return RedirectResponse(url="/?zerodha=connected")
         
@@ -722,10 +725,10 @@ def zerodha_callback(request_token: str, session: Session = Depends(get_session)
         raise HTTPException(status_code=500, detail="OAuth failed due to an internal error.")
 
 @app.get("/api/zerodha/status")
-def zerodha_status_endpoint(session: Session = Depends(get_session)):
-    api_key_config = session.get(Config, "zerodha_api_key")
-    token_config = session.get(Config, "zerodha_access_token")
-    user_config = session.get(Config, "zerodha_user_id")
+async def zerodha_status_endpoint(session: AsyncSession = Depends(get_session)):
+    api_key_config = await session.get(Config, "zerodha_api_key")
+    token_config = await session.get(Config, "zerodha_access_token")
+    user_config = await session.get(Config, "zerodha_user_id")
     
     return {
         "api_key_configured": bool(api_key_config),
@@ -734,7 +737,7 @@ def zerodha_status_endpoint(session: Session = Depends(get_session)):
     }
 
 @app.post("/api/stocks", response_model=Stock)
-def create_manual_stock(payload: StockCreate, session: Session = Depends(get_session)):
+async def create_manual_stock(payload: StockCreate, session: AsyncSession = Depends(get_session)):
     try:
         symbol_query = payload.symbol.upper()
         if payload.asset_class == "CRYPTO":
@@ -765,13 +768,13 @@ def create_manual_stock(payload: StockCreate, session: Session = Depends(get_ses
     )
     
     session.add(stock)
-    session.commit()
-    session.refresh(stock)
+    await session.commit()
+    await session.refresh(stock)
     return stock
 
 @app.put("/api/stocks/{stock_id}")
-def update_stock_holding_endpoint(stock_id: int, tx: StockTransaction, session: Session = Depends(get_session)):
-    stock = session.get(Stock, stock_id)
+async def update_stock_holding_endpoint(stock_id: int, tx: StockTransaction, session: AsyncSession = Depends(get_session)):
+    stock = await session.get(Stock, stock_id)
     if not stock:
          raise HTTPException(status_code=404, detail="Stock not found")
          
@@ -789,16 +792,16 @@ def update_stock_holding_endpoint(stock_id: int, tx: StockTransaction, session: 
         stock.average_price = tx.price
         
     session.add(stock)
-    session.commit()
-    session.refresh(stock)
+    await session.commit()
+    await session.refresh(stock)
     return stock
 
 @app.delete("/api/stocks/{stock_id}")
-def delete_stock_holding_endpoint(stock_id: int, session: Session = Depends(get_session)):
-    stock = session.get(Stock, stock_id)
+async def delete_stock_holding_endpoint(stock_id: int, session: AsyncSession = Depends(get_session)):
+    stock = await session.get(Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
     
-    session.delete(stock)
-    session.commit()
+    await session.delete(stock)
+    await session.commit()
     return {"status": "success", "deleted_id": stock_id}

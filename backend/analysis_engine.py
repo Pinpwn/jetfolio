@@ -10,13 +10,14 @@ This module provides analytical capabilities for the stock portfolio dashboard:
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from sqlmodel import Session, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from backend.models import Stock, Theme, TimelineEvent, Config
 from backend.database import engine
 from backend.logger import logger
 from backend.security import get_secure_config
 from backend.llm_service import LLMService
 
-def get_llm_service(session: Session) -> LLMService:
+async def get_llm_service(session: AsyncSession) -> LLMService:
     """
     Helper to initialize LLMService with configured provider and credentials.
     Priority: Environment Variables > Encrypted Database Config.
@@ -27,7 +28,7 @@ def get_llm_service(session: Session) -> LLMService:
     # 1. Determine Provider
     provider = os.getenv("LLM_PROVIDER")
     if not provider:
-        config_provider = session.get(Config, "llm_provider")
+        config_provider = await session.get(Config, "llm_provider")
         provider = get_secure_config().get_value(config_provider) if config_provider else "perplexity"
     
     # Initialize defaults
@@ -41,12 +42,12 @@ def get_llm_service(session: Session) -> LLMService:
         api_key = get_api_key(session, "groq_api_key")
         model = os.getenv("GROQ_MODEL")
         if not model:
-            config_model = session.get(Config, "groq_model")
+            config_model = await session.get(Config, "groq_model")
             model = get_secure_config().get_value(config_model) if config_model else "llama3-8b-8192"
     elif provider == "local":
         ollama_url = os.getenv("OLLAMA_URL")
         if not ollama_url:
-            config_ollama = session.get(Config, "ollama_url")
+            config_ollama = await session.get(Config, "ollama_url")
             ollama_url = get_secure_config().get_value(config_ollama) if config_ollama else None
 
     return LLMService(
@@ -61,17 +62,17 @@ class AnalysisEngine:
     Core analysis engine for portfolio insights and performance tracking.
     """
     
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         """
         Initialize the analysis engine with a database session.
         """
         self.session = session
 
-    def calculate_basket_performance(self) -> List[Dict[str, Any]]:
+    async def calculate_basket_performance(self) -> List[Dict[str, Any]]:
         """
         Calculate performance metrics for each investment theme/basket.
         """
-        themes = self.session.exec(select(Theme)).all()
+        themes = (await self.session.exec(select(Theme))).all()
         results = []
         
         for theme in themes:
@@ -109,7 +110,7 @@ class AnalysisEngine:
         """
         Generate portfolio insights by identifying winners and losers.
         """
-        stocks = self.session.exec(select(Stock)).all()
+        stocks = (await self.session.exec(select(Stock))).all()
         
         stock_performance = []
         for stock in stocks:
@@ -129,7 +130,7 @@ class AnalysisEngine:
         
         from backend.services.scraper import NewsScraperService as Scraper
         scraper = Scraper()
-        llm = get_llm_service(self.session)
+        llm = await get_llm_service(self.session)
         
         has_credentials = llm.api_key is not None or llm.provider == "local"
 
@@ -175,8 +176,8 @@ class AnalysisEngine:
         """
         Detect and record significant price movements as timeline events.
         """
-        stocks = self.session.exec(select(Stock)).all()
-        llm = get_llm_service(self.session)
+        stocks = (await self.session.exec(select(Stock))).all()
+        llm = await get_llm_service(self.session)
         has_credentials = llm.api_key is not None or llm.provider == "local"
         
         from backend.services.scraper import NewsScraperService as Scraper
@@ -192,9 +193,9 @@ class AnalysisEngine:
             if abs(pct_change) > 3.0:
                 today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
                 
-                existing = self.session.exec(select(TimelineEvent).where(
+                existing = (await self.session.exec(select(TimelineEvent).where(
                     TimelineEvent.related_stock_symbol == stock.symbol
-                ).where(TimelineEvent.date >= today_start)).first()
+                ).where(TimelineEvent.date >= today_start))).first()
                 
                 if not existing:
                     direction = "surged" if pct_change > 0 else "plunged"
@@ -231,7 +232,7 @@ class AnalysisEngine:
                     )
                     self.session.add(event)
 
-        self.session.commit()
+        await self.session.commit()
 
     async def refresh_news(self):
         """
@@ -241,9 +242,9 @@ class AnalysisEngine:
         from backend.models import NewsArticle
         
         logger.info("Starting News Refresh...")
-        llm = get_llm_service(self.session)
+        llm = await get_llm_service(self.session)
         scraper = Scraper()
-        stocks = self.session.exec(select(Stock)).all()
+        stocks = (await self.session.exec(select(Stock))).all()
         
         articles_added = 0
         cutoff_date = datetime.utcnow() - timedelta(days=30)
@@ -263,7 +264,7 @@ class AnalysisEngine:
                     if pub_time < cutoff_date:
                         continue
 
-                    exists = self.session.exec(select(NewsArticle).where(NewsArticle.url == url)).first()
+                    exists = (await self.session.exec(select(NewsArticle).where(NewsArticle.url == url))).first()
                     if not exists:
                         article = NewsArticle(
                             stock_id=stock.id,
@@ -287,10 +288,10 @@ class AnalysisEngine:
                 logger.error(f"Failed to sync news for {stock.symbol}: {e}")
         
         try:
-            self.session.commit()
+            await self.session.commit()
             logger.info(f"News Refresh Complete. Total new articles: {articles_added}")
         except Exception as e:
             logger.error(f"News commit error: {e}")
-            self.session.rollback()
+            await self.session.rollback()
             
         return {"articles_added": articles_added}

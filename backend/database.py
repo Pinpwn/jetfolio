@@ -7,6 +7,8 @@ session management utilities for the application. Uses SQLModel
 """
 
 from sqlmodel import SQLModel, create_engine, Session
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 # Import all models to register their metadata with SQLModel
 # This ensures all tables are created when create_db_and_tables() is called
@@ -22,17 +24,22 @@ from backend.models import (
 
 # Database configuration
 sqlite_file_name = "portfolio.db"  # SQLite database file name
-sqlite_url = f"sqlite:///{sqlite_file_name}"  # SQLite connection URL
+sqlite_url = f"sqlite:///{sqlite_file_name}"  # Synchronous URL for migrations
+async_sqlite_url = f"sqlite+aiosqlite:///{sqlite_file_name}"  # Async URL
 
 # SQLite-specific connection arguments
 # check_same_thread: False allows multi-threaded access (required for FastAPI)
 connect_args = {"check_same_thread": False}
 
-# Create database engine
-# The engine manages the connection pool and dialect-specific behavior
-# Increased pool size to handle background analysis threads
-engine = create_engine(
+# Create synchronous database engine for table creation/migrations
+sync_engine = create_engine(
     sqlite_url, 
+    connect_args=connect_args
+)
+
+# Create asynchronous database engine for application logic
+engine = create_async_engine(
+    async_sqlite_url,
     connect_args=connect_args
 )
 
@@ -41,7 +48,7 @@ def create_db_and_tables():
     """
     Create all database tables from SQLModel metadata.
     """
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(sync_engine)
     run_migrations()
 
 
@@ -50,8 +57,9 @@ def run_migrations():
     Perform manual schema migrations for existing databases.
     """
     from sqlalchemy import text
+    from backend.logger import logger
     try:
-        with engine.connect() as conn:
+        with sync_engine.connect() as conn:
             # 1. Config table: Add is_encrypted
             res = conn.execute(text("PRAGMA table_info(config)"))
             columns = [row[1] for row in res.fetchall()]
@@ -71,21 +79,15 @@ def run_migrations():
         logger.warning(f"Migration check failed: {e}")
 
 
-def get_session():
+async def get_session():
     """
     Dependency injection function for FastAPI endpoints.
     
-    Yields a database session that is automatically closed after use.
+    Yields an asynchronous database session that is automatically closed after use.
     Use with FastAPI's Depends() for automatic session management.
     
-    Example:
-        @app.get("/api/stocks")
-        def get_stocks(session: Session = Depends(get_session)):
-            stocks = session.exec(select(Stock)).all()
-            return stocks
-    
     Yields:
-        Session: SQLModel database session
+        AsyncSession: SQLModel asynchronous database session
     """
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         yield session

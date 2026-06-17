@@ -1,5 +1,6 @@
 from typing import List
-from sqlmodel import Session, select, delete
+from sqlmodel import select, delete
+from sqlmodel.ext.asyncio.session import AsyncSession
 from backend.models import Stock, PortfolioSnapshot
 from backend.database import engine
 from backend.adapters.zerodha import ZerodhaAdapter
@@ -20,27 +21,28 @@ class SyncEngine:
         Executes the sync process in a separate thread to avoid blocking the event loop.
         """
         import asyncio
-        return await asyncio.to_thread(self._execute_sync)
+        return await self._execute_sync()
 
-    def _execute_sync(self):
+    async def _execute_sync(self):
+        import asyncio
         all_stocks: List[Stock] = []
         
         # 1. Fetch from all adapters
         for adapter in self.adapters:
             try:
-                adapter.authenticate()
-                stocks = adapter.fetch_holdings()
+                await asyncio.to_thread(adapter.authenticate)
+                stocks = await asyncio.to_thread(adapter.fetch_holdings)
                 all_stocks.extend(stocks)
             except Exception as e:
                 print(f"Error syncing adapter {adapter}: {e}")
 
         # 1.1 Fetch Manual Stocks from DB to ensure they get price updates
         try:
-             with Session(engine) as temp_session:
-                 manual_stocks = temp_session.exec(select(Stock).where(Stock.platform == "manual")).all()
+             async with AsyncSession(engine) as temp_session:
+                 manual_stocks = (await temp_session.exec(select(Stock).where(Stock.platform == "manual"))).all()
                  for ms in manual_stocks:
                      # Detach from session so we can modify and re-add in main session
-                     temp_session.expunge(ms)
+                     temp_session.sync_session.expunge(ms)
                      all_stocks.append(ms)
         except Exception as e:
              print(f"Error fetching manual stocks: {e}")
@@ -50,18 +52,18 @@ class SyncEngine:
         try:
             from backend.services.price_fetcher import PriceFetcher
             fetcher = PriceFetcher()
-            fetcher.update_prices(all_stocks)
+            await asyncio.to_thread(fetcher.update_prices, all_stocks)
         except Exception as e:
             print(f"Error fetching external prices: {e}")
 
         # 2. Update Database
-        with Session(engine) as session:
+        async with AsyncSession(engine) as session:
             # For simplicity in this demo, we can clear old stocks and re-insert
             # Or use upsert logic. Clearing is safer to avoid duplicates if ID isn't stable across syncs.
             # In a real produciton app, we would match by symbol+platform and update.
             # Smart Update Strategy to preserve IDs and Theme relations
             # 1. Get all existing stocks
-            existing_stocks = session.exec(select(Stock)).all()
+            existing_stocks = (await session.exec(select(Stock))).all()
             existing_map = {(s.symbol, s.platform): s for s in existing_stocks}
             
             # set of (symbol, platform) that we have processed in this sync
@@ -78,7 +80,7 @@ class SyncEngine:
                 if stock_data.currency == "USD":
                      # Use live rate
                     from backend.services.currency_service import CurrencyService
-                    rate = CurrencyService().get_usd_inr_rate()
+                    rate = await asyncio.to_thread(CurrencyService().get_usd_inr_rate)
                     value *= rate
                 total_value_inr += value
                 
@@ -123,12 +125,12 @@ class SyncEngine:
             
             for key, db_stock in existing_map.items():
                 if key not in processed_keys and db_stock.platform in synced_platforms:
-                    session.delete(db_stock)
+                    await session.delete(db_stock)
 
             # Create Snapshot
             snapshot = PortfolioSnapshot(total_value_inr=total_value_inr)
             session.add(snapshot)
             
-            session.commit()
+            await session.commit()
             
         return {"status": "success", "synced_count": len(all_stocks)}
