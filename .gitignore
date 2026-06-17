@@ -110,3 +110,6 @@ portfolio.db
 *.key
 *.pem
 *.cert
+
+# Antigravitycli
+.antigravitycli/
